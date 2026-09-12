@@ -62,13 +62,12 @@ done < <(find "$root/planning" -maxdepth 1 -type f -name '[0-9][0-9][0-9]-*.md' 
 
 while IFS='|' read -r id slug title path status priority sequence summary; do
   file="$root/$path"
-  for field in Status Priority Sequence Summary Labels 'Depends on'; do
+  for field in Status Priority Summary Labels 'Depends on'; do
     test "$(metadata_count "$field" "$file")" = "1"
   done
   test "$(sed -n "s/^# $id — //p" "$file" | head -n 1)" = "$title"
   test "$(metadata Status "$file")" = "$status"
   test "$(metadata Priority "$file")" = "$priority"
-  test "$(metadata Sequence "$file")" = "$sequence"
   test "$(metadata Summary "$file")" = "$summary"
   test -n "$summary"
   test "$sequence" -ge 1

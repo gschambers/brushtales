@@ -14,10 +14,15 @@ Every task should declare:
 
 - status: `todo`, `in_progress`, `blocked`, `done`, or `cancelled`;
 - priority: `critical`, `high`, `medium`, or `low`;
-- sequence: an integer execution order;
 - summary: a one-line searchable description;
 - labels: one or more concise categories; and
 - dependencies: task IDs that should be completed first.
+
+Execution sequence is an index concern and is stored only in `index.sqlite3`.
+Do not put sequence numbers in task Markdown; reordering tasks should update the
+index without touching every task file. Markdown remains the human-readable
+source of truth for task intent, acceptance criteria, and notes; SQLite stores
+queryable metadata and relationships rather than the full document body.
 
 ## Useful queries
 

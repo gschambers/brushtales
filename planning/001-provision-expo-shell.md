@@ -2,7 +2,6 @@
 
 - **Status:** todo
 - **Priority:** critical
-- **Sequence:** 1
 - **Summary:** Create the React Native + Expo + TypeScript app shell for iOS and Android.
 - **Labels:** foundation, mobile, expo
 - **Depends on:** none
