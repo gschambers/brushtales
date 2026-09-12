@@ -3,6 +3,7 @@
 - **Status:** todo
 - **Priority:** high
 - **Sequence:** 7
+- **Summary:** Keep multiple child profiles and summaries isolated on-device.
 - **Labels:** privacy, profiles, storage
 - **Depends on:** 001, 005
 
