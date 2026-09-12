@@ -4,6 +4,9 @@ node_modules/
 dist/
 web-build/
 coverage/
+.worktrees/
+tmp/
+.tmp/
 
 # Local configuration and secrets
 .env

@@ -3,6 +3,7 @@
 - **Status:** todo
 - **Priority:** high
 - **Sequence:** 3
+- **Summary:** Audition TTS candidates and generate reviewed v0 story audio.
 - **Labels:** audio, content, tts
 - **Depends on:** 002
 

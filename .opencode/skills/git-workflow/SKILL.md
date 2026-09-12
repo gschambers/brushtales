@@ -1,11 +1,11 @@
 ---
-name: Git Workflow
-description: Apply safe Git practices for conventional commits, branches, pull requests, and repository history.
+name: git-workflow
+description: Git conventions for BrushTales — Conventional Commits, feature branches, worktrees, PR-first delivery, and safe Git operations.
 ---
 
 # Git workflow
 
-Use this skill whenever a task creates, edits, commits, branches, merges, or prepares a pull request for a Git repository.
+Use this skill whenever a task creates, edits, commits, branches, merges, rebases, or prepares a pull request for BrushTales.
 
 ## Safety rules
 
@@ -18,7 +18,7 @@ Use this skill whenever a task creates, edits, commits, branches, merges, or pre
 
 ## Repository and branch rules
 
-- The protected integration branch is `main`. Do not commit directly to it for feature, fix, research, or refactor work.
+- The protected integration branch is `main`. Do not commit directly to it for feature, fix, research, refactor, or workflow work. The initial repository bootstrap was the only exception.
 - Create branches from an up-to-date `main` using one of these prefixes:
   - `feat/<short-kebab-name>` — user-facing capability
   - `fix/<short-kebab-name>` — bug correction
@@ -31,6 +31,7 @@ Use this skill whenever a task creates, edits, commits, branches, merges, or pre
 - Keep branches small and short-lived. One branch should normally map to one reviewable change.
 - Before branching, check the current branch and worktree. Do not switch branches if it would strand or overwrite uncommitted work.
 - Branch protection should require pull requests, passing CI, and at least one review before merging to `main`. Configure this on the hosting service; local Git cannot enforce remote protection.
+- Use one worktree per planning task. The main checkout is for orchestration and coordination, not application implementation.
 
 ## Conventional commits
 
@@ -65,8 +66,15 @@ Commit guidance:
 - Keep each commit coherent and reviewable. Do not mix formatting churn, unrelated cleanup, or generated artifacts into a behavioral change.
 - Include the appropriate `changelog/` entry for an actual product change, and put research-only material in `research/`.
 - Treat `planning/*.md` as canonical task content and update `planning/index.sqlite3` when planning metadata changes.
+- Include the planning task reference in the commit body, for example `Task: planning/001-provision-expo-shell.md`.
 
 SemVer interpretation for future releases: `fix`/`perf` are generally patch-level, `feat` is generally minor-level, and a breaking change is major-level. Confirm release policy before tagging.
+
+## Pre-push rebase guard
+
+Before every push, including a re-push after review, update the feature branch from `origin/main`. Use the validated task helper from the main checkout: `bash planning/worktree-git.sh <task-id> rebase`. It fetches `origin/main`, rebases only when the branch does not already contain it, and uses `GIT_EDITOR=true` for non-interactive execution.
+
+Never merge `main` into a feature branch merely to update it. Never force-push a branch with human approvals. If a rebase rewrites only your own unapproved work, use `--force-with-lease` only after explicit user approval.
 
 ## Before committing
 
@@ -86,16 +94,18 @@ Stage explicit paths rather than using `git add .` when unrelated or generated f
 
 ## Pull requests
 
-PR titles should use the same Conventional Commit style as commits, for example `feat: make brushing progress shape story branches`.
+PR titles should use the same Conventional Commit style as commits, for example `feat(session): make brushing progress shape story branches`.
 
 Every PR should state:
 
 1. **Summary** — what changed and why;
 2. **Scope** — what is deliberately not included;
-3. **Testing** — exact commands and physical-device coverage, or why a check could not run;
-4. **Privacy/safety** — camera, audio, child-data, permissions, and fallback implications;
-5. **Screenshots/audio/video** — when UI or interaction changes need review; and
-6. **Risks and rollout** — known limitations, migration needs, and follow-up tasks.
+3. **Task** — the planning task path and relevant task metadata;
+4. **Verification performed** — exact commands and physical-device coverage, or why a check could not run;
+5. **Adversarial review** — blocking/major findings fixed and any minor/nit remainder;
+6. **Privacy/safety** — camera, audio, child-data, permissions, and fallback implications;
+7. **Screenshots/audio/video** — when UI or interaction changes need review; and
+8. **Risks and rollout** — known limitations, migration needs, and follow-up tasks.
 
 Keep the PR focused, link the relevant planning task, and call out changes to story content or narration assets. Request review from the appropriate code/content/privacy owners. Do not merge a PR with failing required checks or unresolved safety/privacy concerns.
 

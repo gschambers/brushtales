@@ -3,6 +3,7 @@
 - **Status:** todo
 - **Priority:** critical
 - **Sequence:** 4
+- **Summary:** Prove camera, on-device signal, audio, and wake-lock behavior on physical devices.
 - **Labels:** camera, ml, native, spike
 - **Depends on:** 001
 

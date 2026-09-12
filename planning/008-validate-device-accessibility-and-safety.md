@@ -3,6 +3,7 @@
 - **Status:** todo
 - **Priority:** high
 - **Sequence:** 8
+- **Summary:** Validate the supervised experience on representative iOS and Android devices.
 - **Labels:** accessibility, qa, safety, release
 - **Depends on:** 004, 006, 007
 

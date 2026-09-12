@@ -3,6 +3,7 @@
 - **Status:** todo
 - **Priority:** high
 - **Sequence:** 6
+- **Summary:** Map time, motion, and confidence to gentle authored story branches.
 - **Labels:** ml, story, session
 - **Depends on:** 002, 004, 005
 
