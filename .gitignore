@@ -1,0 +1,20 @@
+# Node / Expo / React Native
+node_modules/
+.expo/
+dist/
+web-build/
+coverage/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# OS and tooling noise
+.DS_Store
+*.log
+
+# SQLite transient files; keep planning/index.sqlite3 itself tracked
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-journal
