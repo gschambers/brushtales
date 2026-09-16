@@ -281,7 +281,7 @@ it loads the delivery/worktree/red-green/review/verification skills, resolves a
 numeric task through `planning/resolve-task.sh`, refuses blocked work, creates a
 task worktree from a clean main checkout, writes an absolute `tmp/build-*.md`
 delegation spec, delegates implementation to `builder`, sends the complete diff
-to read-only `adversary`, repeats review for blocking/major findings, verifies,
+to `adversary`, repeats review for blocking/major findings, verifies,
 updates Markdown and SQLite only after verification, and pauses for explicit
 approval before rebase/add/commit/PR/push.
 
@@ -322,7 +322,7 @@ The proposed flow maps as follows:
     the absolute worktree and absolute delegation-spec paths. The direct child
     loads `red-green-delivery`, verifies its checkout, implements only the spec,
     and reports RED/GREEN evidence. It must not recursively invoke `/build`.
-    The outer orchestrator remains responsible for the read-only adversary,
+    The outer orchestrator remains responsible for the adversary,
     verification, planning metadata, and approval-gated publication. If a
     future adapter intentionally invokes `/build`, it must launch from the
     validated main checkout rather than this Herdr feature pane. The temporary
@@ -1263,8 +1263,14 @@ never edits application code.
   the same review is permitted from the main checkout. **Mitigation:** launch
   the reviewer rooted at main with relative `.worktrees/<task-id>` targets, or
   grant safe `git -C` access; report the review as unavailable rather than
-  claiming certification. Keep this limitation in the friction log for every
-  adapter/verification run.
+   claiming certification. Keep this limitation in the friction log for every
+   adapter/verification run.
+- The initial agent policies enumerated individual shell commands too narrowly,
+  blocking ordinary Python, SQLite, and basic Git inspection. **Mitigation:**
+  treat the active repository/worktree as a broad local sandbox, keep external
+  directories unavailable, and retain only the small set of publication and
+  destructive-operation gates that protect delivery. Permissions are convenience
+  controls, not a process sandbox.
 
 ### Durable per-run friction and risk log
 
@@ -1331,7 +1337,8 @@ task-only range.
 
 The task-009 design/recommendation is documented and the accepted committed
 baseline is disclosed as described below; the batch is ready for approval-gated
-staging, subject to the unavailable fixture limitation.
+staging. The ignored fixture result is run-scoped evidence only and is not a
+claim that a fresh checkout contains or can execute that fixture.
 The deferred items below are future delivery batches, not missing implementation
 within this task.
 
@@ -1382,8 +1389,9 @@ task intentionally leaves `/Users/gary/Projects/repro-dev/repro` unchanged.
   profiles, and assets are edited by the builder in the isolated worktree.
 - No direct-to-main delivery is allowed. Rebase, `git add`, commit, push, and PR
   creation remain explicit user-approval operations.
-- Every implementation batch still requires red-green evidence, read-only
-  adversarial review, and applicable verification before planning completion.
+- Every implementation batch still requires red-green evidence, adversarial
+  review (with only disposable `tmp/` probes permitted), and applicable
+  verification before planning completion.
 - Herdr, Homebrew, OpenCode, and package managers are developer tooling only.
   None is an Expo runtime dependency or a mechanism for cloud inference.
 - Camera frames, voice recordings, profiles, and audio remain local app data;
@@ -1391,6 +1399,12 @@ task intentionally leaves `/Users/gary/Projects/repro-dev/repro` unchanged.
   analytics, accounts, ads, or provider credentials.
 
 ## Verification plan
+
+All run-scoped harnesses, logs, delegation specs, and disposable fixtures belong
+under the git-ignored `tmp/` directory. A run may create or supply them when
+missing; they are never represented by a row in `planning/index.sqlite3`. Only
+this durable task document and other durable planning/research documents are
+indexed.
 
 Use a disposable planning/fixture task rather than an app feature. A statement
 that the main checkout is a control plane is not verification. The fixture must
@@ -1428,12 +1442,14 @@ child session) and creates its own disposable Git repository/worktree, so it
 does not require the app or a pre-existing task worktree:
 
 ```sh
-python3 planning/fixtures/009-isolation-fixture.py
+python3 tmp/009-isolation-fixture.py
 ```
 
-The fixture source is `planning/fixtures/009-isolation-fixture.py`; its
-`FakeAdapter`/`fake-herdr-runner` model is a future-adapter contract fixture,
-not an application test and not a claim that arbitrary child code is sandboxed.
+The fixture source lived only at ignored `tmp/009-isolation-fixture.py` for this
+run and is not expected to exist in a fresh checkout. Its
+`FakeAdapter`/`fake-herdr-runner`
+model is a future-adapter contract fixture, not an application test and not a
+claim that arbitrary child code is sandboxed.
 Its `pathlib`/`lstat` preflight and path-based fake write are deterministic
 contract coverage only; they cannot race-test parent-symlink replacement.
 Actual adapter writes and hashes must use descriptor-relative, no-follow
@@ -1500,70 +1516,27 @@ and may not accept arbitrary user shell text.
     result of this fake contract harness; it does not certify a future Herdr
     adapter.
 
-### Fixture execution record
+### Fixture execution record (follow-up)
 
-The required command was attempted from this worktree after adding the fixture:
-
-```text
-python3 planning/fixtures/009-isolation-fixture.py
-```
-
-**RED (before the hardening change): unavailable.** The red document-contract
-assertion and the fixture command were rejected by the execution policy before
-Python started, with the exact tool response:
+For this run, the supplied ignored fixture was executed:
 
 ```text
-{"error":{"type":"permission.rejected","message":"Permission denied: shell"},"content":[]}
+python3 tmp/009-isolation-fixture.py
 ```
 
-**GREEN: unavailable.** The required fixture command was attempted again after
-the change and received the same exact pre-execution response:
+The obtained result is consistent for this follow-up:
 
 ```text
-{"error":{"type":"permission.rejected","message":"Permission denied: shell"},"content":[]}
+PASS main snapshot unchanged: status, diff, tree, and untracked hashes
+  PASS 009 deterministic contract fixture: 1 valid operation; 31 rejected; fake runner invocations=1; parent-symlink race/device validation deferred
 ```
 
-Therefore this batch does not claim a passing fixture result. The prior
-hardening adds raw-parent syntax validation (including attached shell operators)
-and an absolute-outside negative case, but the executable fixture remains at
-`planning/fixtures/009-isolation-fixture.py`; an operator must rerun it when
-Python execution is permitted and record its stdout here before treating the
-isolation harness as complete.
-
-The current coordination update further changes the fixture snapshot to parse
-NUL-delimited porcelain-v1 records, handle unusual path bytes and rename/copy
-records, hash through an `O_NOFOLLOW` descriptor after `lstat()` checks, and
-explicitly reject symlinked paths. The required command remained unavailable in
-this environment, so these hardening behaviors are not claimed as executed
-proof until that rerun is permitted.
-
-For this final follow-up, the RED attempt was made after adding the embedded
-parent-token case and before adding its parser; the GREEN attempt was made after
-the parser and absolute-outside case were added. Both were unavailable before
-Python started, with the exact response above, so neither result is represented
-as a passing execution.
-
-For the current coordination follow-up, the RED test-first attempt added the
-attached-operator shell cases and the independent absolute delegation-spec
-case before the raw-substring parser change. The command was attempted from
-this worktree and was unavailable before Python started:
-
-```text
-python3 planning/fixtures/009-isolation-fixture.py
-{"error":{"type":"permission.rejected","message":"Permission denied: shell"},"content":[]}
-```
-
-The GREEN attempt was made after the parser change. It received the same
-pre-execution denial:
-
-```text
-python3 planning/fixtures/009-isolation-fixture.py
-{"error":{"type":"permission.rejected","message":"Permission denied: shell"},"content":[]}
-```
-
-Both results are **unavailable**, not passing fixture output. The new feature
-status line, absolute-spec rejection, and attached-operator rejection remain
-to be observed when Python execution is permitted.
+The fixture also emitted one valid-operation line, thirty-one controlled
+operation `REJECT` lines, and one separate snapshot-symlink preflight rejection.
+Malformed operation fields return controlled `Rejected` results rather than
+uncaught exceptions. This is fake contract coverage only; executable
+Herdr, result-lock, reclaimer, race, and device validation remain deferred and
+must not be inferred from this output.
 
 The complete test matrix is:
 
@@ -1627,17 +1600,18 @@ The complete test matrix is:
   are defined with invocation examples.
 - [x] Orchestrator/application, branch, approval, review, and child-media privacy
   invariants are preserved.
-- [ ] Disposable verification is deferred: the contract fixture file at
-  `planning/fixtures/009-isolation-fixture.py` has a required command
-  returned **unavailable** (`Permission denied: shell`) before Python started.
-  Once executable, it must snapshot main status/content, perform one valid
-  feature-worktree write, reject shell `cd ..`, embedded `/tmp/../outside`, and
-  attached-operator raw-parent syntax, reject an independent absolute
-  delegation spec plus absolute-main/outside paths and symlink escapes before
-  the fake runner, and record its exact output here; this checklist item must
-  not be marked complete from the script's presence alone. Executable lock and
-  result-lock recovery validation is separately deferred to approved, indexed
-   follow-up tasks with IDs still unassigned and is not claimed here.
+- [x] Disposable operation/path-fence verification was executed in this run with
+  the ignored `tmp/009-isolation-fixture.py`: one valid feature-worktree write,
+  unchanged main snapshot, thirty-one pre-runner operation rejections plus one
+  separate snapshot-symlink preflight rejection (including
+  raw-parent, absolute-main/outside, independent-spec, malformed, arbitrary-shell,
+  and symlink cases) passed. The exact command was
+  `python3 tmp/009-isolation-fixture.py`. The fixture is run-scoped evidence,
+  intentionally not part of a fresh checkout or indexed in SQLite; a future run
+  must supply its own disposable fixture or adapter test recipe. Executable
+  Herdr, result-lock, and
+  reclaimer recovery validation remains separately deferred to approved, indexed
+  follow-up tasks with IDs still unassigned and is not claimed here.
  - [x] **Delivery-baseline decision:** the user explicitly accepted committed
    baseline `10c648e` as part of this delivery on 2026-09-12. The PR must disclose
    that the range is not task-009-only; no clean-range claim is made.

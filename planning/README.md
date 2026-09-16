@@ -44,6 +44,13 @@ sqlite3 -header -column planning/index.sqlite3 \
 
 Run `bash planning/verify-index.sh` to validate SQLite integrity, bidirectional task-file coverage, dependency foreign keys, and task counts.
 
+Durable planning documents live in `planning/*.md` and durable research notes live
+in `research/*.md`. Run-scoped scratch material—delegation specs, logs, PR drafts,
+and disposable fixtures—lives under the git-ignored `tmp/` directory. A missing
+`tmp/` artifact is recreated by the run; it is not added to `planning/index.sqlite3`.
+The task-009 isolation fixture was run-scoped evidence only and is not expected in
+a fresh checkout.
+
 Run `bash planning/resolve-task.sh 001` to resolve a task ID to its indexed metadata without writing SQL from the agent workflow.
 
 Use `bash planning/worktree-git.sh <task-id> rebase`, then `add <paths...>`, `commit <message>`, and `push` for approval-gated Git operations against the validated, registered task worktree. The helper can be invoked from the main checkout or from its feature-worktree copy.

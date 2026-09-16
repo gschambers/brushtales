@@ -37,6 +37,7 @@ Camera, wake-lock, audio interruption, permissions, and accessibility behavior r
 - Use OS-assigned ports; never assume fixed development ports in verification harnesses.
 - Use an ephemeral database or scratch database under `tmp/`/`.tmp/`; never use a development database for tests.
 - Keep harnesses, logs, screenshots, and temporary assets out of source directories.
+- Keep disposable planning fixtures, adversarial probes, and run-scoped verification artifacts under the git-ignored `tmp/` directory; recreate missing scratch files during the run instead of indexing them in `planning/index.sqlite3`. The task-009 isolation fixture is run-scoped evidence only and is not expected in a fresh checkout.
 - Clean temporary resources after verification.
 
 ## Pass/fail criteria

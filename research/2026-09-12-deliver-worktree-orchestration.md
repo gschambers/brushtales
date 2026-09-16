@@ -37,9 +37,15 @@ independent state mutations.
 
 The current repository has no Expo/package manifest or lockfile, so dependency
 provisioning is unavailable until the Expo shell establishes an authoritative
-package manager and lockfile. The disposable isolation fixture can validate only
-the future adapter's fake operation fence and main-checkout snapshot; it cannot
-certify Herdr, lock recovery, or arbitrary child-code sandboxing.
+package manager and lockfile. The task-009 isolation fixture lived only at ignored
+`tmp/009-isolation-fixture.py` for the follow-up run and is not expected in a
+fresh checkout. It validates only the future adapter's fake operation fence and
+main-checkout snapshot; it
+cannot certify Herdr, lock recovery, or arbitrary child-code sandboxing. The
+follow-up run obtained PASS main snapshot unchanged and PASS 009 deterministic
+contract fixture: 1 valid operation; 31 operation rejections; fake runner
+invocations=1 (the separate snapshot-symlink preflight rejection is reported
+independently).
 
 ## Decision
 
@@ -50,6 +56,12 @@ assigning IDs or implementing the Herdr host-surface validation, local-task-ID
 adapter, provisioning follow-up, or disposable integration/recovery fixture.
 
 ## Implication for BrushTales
+
+Keep durable workflow decisions in `planning/*.md` and durable observations in
+`research/*.md`. Run-scoped delegation specs, logs, PR drafts, and disposable
+verification fixtures belong in the git-ignored `tmp/` directory. A run recreates
+missing scratch artifacts; they are not task files and must not be indexed in
+`planning/index.sqlite3`.
 
 Keep `/build`, the SQLite-backed local task resolver, existing worktree workflow,
 builder/adversary boundary, approval-gated Git publication, and local-only child
