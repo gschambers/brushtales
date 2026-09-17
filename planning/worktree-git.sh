@@ -45,7 +45,12 @@ staged_paths() {
 assert_safe_staged_paths() {
   while IFS= read -r path; do
     case "$path" in
-      .env|.env.*|*/.env|*/.env.*|.envrc|*/.envrc|.npmrc|*/.npmrc|*.pem|*.key|*.p12|*.pfx|*.p8|*.crt|*.der|*.asc|*.gpg|.ssh/*|*/.ssh/*|.aws/*|*/.aws/*|id_rsa|id_ed25519|*credentials*|*secrets*)
+      .envrc)
+        # This repository's checked-in .envrc is a deliberately fixed, safe
+        # PATH declaration. Keep rejecting arbitrary direnv programs.
+        test "$(git -C "$worktree" show ":$path")" = 'PATH_add "$PWD/bin"'
+        ;;
+      .env|.env.*|*/.env|*/.env.*|*/.envrc|.npmrc|*/.npmrc|*.pem|*.key|*.p12|*.pfx|*.p8|*.crt|*.der|*.asc|*.gpg|.ssh/*|*/.ssh/*|.aws/*|*/.aws/*|id_rsa|id_ed25519|*credentials*|*secrets*)
         test "$path" = ".env.example" || { printf 'refusing sensitive staged path: %s\n' "$path" >&2; exit 1; }
         ;;
     esac

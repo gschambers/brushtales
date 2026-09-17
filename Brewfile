@@ -8,3 +8,4 @@ brew "watchman"   # faster file watching for Metro during app development
 brew "gh"         # GitHub CLI for authenticated repository and PR workflows
 brew "jq"         # host-only JSON parsing for Herdr/provisioning scripts
 brew "herdr"      # developer-only terminal workspaces for delegated sessions
+brew "direnv"     # repository-local developer shell environment
