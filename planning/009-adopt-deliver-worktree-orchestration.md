@@ -78,13 +78,14 @@ created.
 ### Implementation status and scope boundary
 
 This task is a design/adoption investigation. It does **not** implement the
-Herdr adapter, `workspace reconcile`/`recover`/`abandon` commands, lock or
+Herdr adapter, `brushtales-herdr workspace reconcile`/`recover`/`abandon`
+commands, lock or
 recovery runtime, or an application integration. The ownership, reclaimer,
 fence, result-lock, and journal material below is a required future-adapter
 contract: it specifies behavior that an adapter must implement, but it is not
 runtime-proven by this task. Executable lock/recovery validation is explicitly
-deferred to separately approved, indexed follow-up tasks whose IDs have not yet
-been assigned. The fixture file only exercises its fake pre-Herdr path/operation
+deferred to the indexed follow-up tasks 010–014. The fixture file only exercises
+its fake pre-Herdr path/operation
 fence; its passing (or unavailable) output must not be presented as Herdr or
 lock-recovery proof.
 
@@ -159,10 +160,10 @@ Brewfile, temporary deliver test plans/notes, and the installed Herdr CLI (0.8.2
   `herdr server stop` but no standalone start subcommand, so startup must follow
   the supported host-terminal procedure below rather than copying an older
   fallback.
-- The agent guide says an ordinary `herdr` invocation launches or attaches to
-  the default persistent session and first-run onboarding starts there. The
-  supported standalone procedure is for the developer to invoke `herdr` from a
-  host terminal or dedicated pane, then for the adapter to poll
+ - The agent guide says an ordinary `herdr` invocation launches or attaches to
+   the default persistent session and first-run onboarding starts there. That
+   procedure is retained only for explicit legacy/shared-server use. The
+   project-local adapter instead invokes its owned lifecycle and then polls
   `herdr status server` at a fixed interval until it reports `running` and a
   compatible protocol, with a bounded timeout. If that procedure is unavailable
   or readiness fails, report the prerequisite as unavailable and provide the
@@ -183,8 +184,8 @@ Brewfile, temporary deliver test plans/notes, and the installed Herdr CLI (0.8.2
   `herdr start`. This is stale/version-dependent guidance: the observed Herdr
   0.8.2 `herdr --help` has no `herdr start` command. BrushTales must instead
   prescribe the supported ordinary `herdr` invocation from a developer host
-  terminal (or a dedicated host pane), then poll `herdr status server`; it must
-  not copy the reference's `herdr start` text into a user-facing recovery path.
+   terminal (or a dedicated host pane), then poll `herdr status server`; it must
+   not copy the reference's `herdr start` text into a user-facing recovery path.
 - The reference `deliver` reads the first pane from
   `herdr pane list --workspace <id>`, then runs
   `herdr pane split --pane <root> --direction right --cwd <worktree> --ratio
@@ -233,11 +234,12 @@ fire-and-forget install as success.
 
 This is the durable BrushTales adoption contract documented by task 009 now;
 the contract is required, but its adapter implementation is deferred. It is not
-runtime behavior delivered by this task. Separately approved, indexed follow-up
-tasks must be created before implementation: one must validate the supported
-Herdr version and command-name differences, and another must supply disposable
-integration and recovery validation. Their IDs are intentionally unassigned;
-this design must not invent task IDs that are absent from the planning index.
+runtime behavior delivered by this task. The indexed follow-up sequence is task
+010 for project-local Herdr validation, task 011 for the owned server lifecycle,
+task 014 for run ownership and recovery, task 012 for workspace-aware OpenCode
+commands and wrappers, and task 013 for end-to-end validation and migration.
+These tasks must preserve the contract below rather than silently attaching to
+the shared global server.
 
 1. **Install host tooling:** `brew "herdr"` in the repository `Brewfile` is a
    deliberate developer-tooling recommendation. `brew bundle
@@ -248,27 +250,30 @@ this design must not invent task IDs that are absent from the planning index.
    `brew install herdr` (or the supported platform installer) followed by a
    retry. Never claim that a Herdr workspace was opened when this preflight is
    unavailable.
-2. **Start and check readiness:** before opening any worktree-scoped workspace,
-   the developer invokes ordinary `herdr` from a host terminal or dedicated
-   pane. That supported invocation launches or attaches to the persistent
-   default session. The adapter then polls `herdr status server` at a fixed
+ 2. **Start and check readiness:** before opening any worktree-scoped workspace,
+    the adapter invokes the project-local lifecycle from task 011 with its
+    derived `HERDR_CONFIG_PATH`; it must not inherit the global default session.
+    The adapter then polls `herdr status server` at a fixed
    interval for a bounded 30-second timeout. Readiness requires a successful
    status response reporting `running` and a compatible protocol. A timeout,
    incompatible protocol, or unavailable host-terminal startup aborts workspace
    opening, retains the Git worktree, records Herdr as unavailable, and prints
-   the status command plus a manual retry/recovery path. This contract does not
-   invent a headless startup command or flag.
- 3. **Ownership and lifecycle:** the Herdr server is persistent host developer
-    tooling owned by the developer's Herdr installation, not by the app or a
-    single delivery. Each invocation tags its workspace with a unique
-    `BrushTales-<task-id>-<run-id>` label, queries the exact worktree path, and
-    records the workspace ID plus whether this invocation created or reused that
-    exact-path workspace. Cleanup closes only a workspace recorded as created by
-    this invocation; it must never close a reused workspace from another run or
-    retry. The run must never stop the shared Herdr server, which may serve other
-    workspaces. `herdr server stop` is permitted only when this run explicitly
-    owns a dedicated server it started (for example through a dedicated
-    `HERDR_CONFIG_PATH`) and records that ownership.
+    the status command plus a manual retry/recovery path. Legacy/manual `herdr`
+    startup remains available only as an explicit migration mode. This contract
+    does not invent a headless startup command or flag.
+  3. **Ownership and lifecycle:** normal BrushTales adapter runs use a dedicated
+     Herdr server and project-local configuration namespace owned by the current
+     project lifecycle. Each invocation tags its workspace with a unique
+     `BrushTales-<task-id>-<run-id>` label, queries the exact worktree path, and
+     records the workspace ID plus whether this invocation created or reused that
+     exact-path workspace. Cleanup closes only a workspace recorded as created by
+     this invocation; it must never close a reused workspace from another run or
+     retry. The adapter must never stop the shared global server. An explicit
+     `--mode legacy-global --global-config <absolute-path>`, must record
+     `server_disposition=shared`, and may not perform server stop or global
+     workspace cleanup. The default is `--mode local`; local mode rejects a
+     global config. A local run may use `herdr server stop` only when its
+     dedicated server instance and ownership token are recorded.
 4. **Failure fallback:** startup/readiness failure leaves the worktree intact
    for manual commands or a retry. Workspace open, pane, handoff, and install
    failures follow the same fail-open, non-destructive rule and must be labeled
@@ -356,7 +361,7 @@ This is a future adapter contract, not an application runtime feature:
 Path validation is a prerequisite to every provisioning or control-plane file
 operation. Before creating or using a provisioning script, result, log, run
 record, transfer intent, lock, cancellation marker, quarantine record, or
-friction log, the adapter must resolve the worktree root, registered main root,
+friction log, the adapter must resolve the worktree root, canonical main root,
 and the intended artifact root with Python `pathlib`. The resolver must walk
 the candidate and every existing parent with `lstat()`-style checks and reject
 any symlinked component (including `tmp/` and any intermediate directory),
@@ -386,6 +391,7 @@ The only allowed artifact roots are:
 | `SCRIPT`, `RESULT`, `LOG`, `result.lock`, `cancel.json`, and `late-*.json` | `WORKTREE_REAL/tmp/herdr-provision` |
 | run records, per-worktree locks, transfer intent journals, and recovery evidence | `MAIN_REAL/tmp/herdr-runs` |
 | per-run friction JSONL | `MAIN_REAL/tmp/herdr-friction` |
+| project-local Herdr config, socket, logs, state, and server ownership | `MAIN_REAL/tmp/herdr-project/<64-char-sha256-main-root>/` |
 
 `WORKTREE_REAL` and `MAIN_REAL` themselves must be existing, non-symlinked,
 strictly resolved Git roots before any artifact directory is inspected. For a
@@ -767,7 +773,8 @@ reclaim it.
 
 Recovery is runnable without acquiring an orphaned per-worktree lock. The task
 run directory has a sibling parent-level `.worktree-recovery.lock` and an
-authoritative `.worktree-lock-fence.json`; `workspace reconcile` acquires the
+authoritative `.worktree-lock-fence.json`; `brushtales-herdr workspace reconcile`
+acquires the
 recovery lock, never the orphan, and inspects its owner token, PID, session,
 heartbeat, lease, and generation. It requires an expired lease, owner-only
 operator evidence proving the process/session is gone, the operator identity,
@@ -786,15 +793,19 @@ at least:
 ```json
 {
   "task_id": "009",
+  "project_root": "<resolved absolute main checkout path>",
   "run_id": "<new unique UUID>",
   "owner_token": "<unpredictable token>",
   "generation": "<opaque-lock-generation>",
   "worktree": "<resolved absolute path>",
-  "workspace_id": "w1",
+   "workspace_id": "<opaque exact ID or null while acquiring>",
   "label": "BrushTales-009-<run-id>",
   "workspace_disposition": "created|reused",
   "ownership_state": "acquiring|current|completed|transferred|failed|blocked|abandoned|closed",
   "server_disposition": "shared|dedicated-owned|dedicated-not-owned",
+  "server_instance_id": "<dedicated server identity or null>",
+  "herdr_config_path": "<resolved absolute config path>",
+  "herdr_socket_path": "<resolved absolute socket path>",
   "owner_pid": "<delivery-process-pid>",
   "session_identity": "<launcher/session identity>",
   "lease_expires_at": "<RFC3339 timestamp>",
@@ -807,6 +818,11 @@ at least:
   "updated_at": "<RFC3339 timestamp>"
 }
 ```
+
+For the default project-local adapter, `server_disposition` must be
+`dedicated-owned` or `dedicated-not-owned`; `shared` is valid only for the
+explicit legacy/migration mode and is never eligible for server stop or shared
+workspace cleanup.
 
 The adapter follows this protocol:
 
@@ -840,7 +856,7 @@ The adapter follows this protocol:
      acquiring record must stop; recovery cannot manufacture an unrelated owner
      or target record.
 
-      `workspace recover` reacquires the parent-level recovery lock, never an
+      `brushtales-herdr workspace recover` reacquires the parent-level recovery lock, never an
       orphaned lock, and validates the target record before changing the old
       record. It requires `NEW_ID`, the target
      owner token supplied by the retry, `task_id`, resolved `worktree`, and
@@ -859,7 +875,7 @@ The adapter follows this protocol:
        explicit operator command that proves its process or Herdr session is gone
        and records that evidence; it is never silently treated as a failed run.
 
-      Before `workspace recover` can proceed, it must enumerate all records for
+      Before `brushtales-herdr workspace recover` can proceed, it must enumerate all records for
       the exact task/worktree and all records whose
       `expected_predecessor=OLD_ID`. There must be exactly one valid retry
       target: the supplied `NEW_ID`, its supplied owner token, the exact task,
@@ -878,26 +894,47 @@ The adapter follows this protocol:
        lock is never acquired. There is one intent schema and one intent file
        per transaction, not separate journals for evidence, records, or lock
        state. Before changing **any** recovery evidence publication, run record,
-       transfer relationship, orphan lock, quarantine, generation fence, or
-       fresh-lock state, the adapter validates all inputs and atomically
+       workspace cleanup, result publication, transfer relationship, orphan lock,
+       quarantine, generation fence, or fresh-lock state, the adapter validates
+       all inputs and atomically
        publishes one owner-only intent file under the validated
        `MAIN_REAL/tmp/herdr-runs/<task-id>/` root. Publishing the prepared
        intent is the first mutation. A reconcile intent has no target record;
        a recover intent has both predecessor and already-created target
        snapshots.
 
-       The intent contains at least:
+        The intent contains at least:
 
       ```json
       {
         "intent_id": "<unique-id>",
         "task_id": "009",
+        "project_root": "<resolved absolute main checkout path>",
         "predecessor_run_id": "<OLD_ID>",
         "predecessor_owner_token": "<OLD_TOKEN>",
         "target_run_id": "<NEW_ID>",
         "target_owner_token": "<TARGET_TOKEN>",
         "worktree": "<resolved absolute path>",
          "workspace_id": "<opaque exact ID>",
+         "server_instance_id": "<dedicated server identity or null>",
+         "herdr_config_path": "<resolved absolute config path>",
+         "herdr_socket_path": "<resolved absolute socket path>",
+         "server_before": "<immutable server-owner snapshot or null>",
+         "server_after": "<immutable server-owner snapshot or null>",
+         "workspace_before": "<immutable workspace snapshot or null>",
+         "workspace_after": "<immutable workspace snapshot or null>",
+         "result_before": "<immutable result snapshot or null>",
+         "result_after": "<immutable result snapshot or null>",
+         "result_lock_before": "<immutable result-lock snapshot or null>",
+         "result_lock_after": "<immutable result-lock snapshot or null>",
+         "deadline_before": "<immutable deadline/cancel snapshot or null>",
+         "deadline_after": "<immutable deadline/cancel snapshot or null>",
+         "recovery_lock_before": "<immutable recovery-lock snapshot or null>",
+         "recovery_lock_after": "<immutable recovery-lock snapshot or null>",
+         "server_start_lock_before": "<immutable server-start-lock snapshot or null>",
+         "server_start_lock_after": "<immutable server-start-lock snapshot or null>",
+         "quarantine_before": "<immutable quarantine snapshot or null>",
+         "quarantine_after": "<immutable quarantine snapshot or null>",
          "predecessor_record_before": "<immutable record snapshot>",
          "target_record_before": "<immutable record snapshot>",
          "predecessor_record_after": "<immutable record snapshot>",
@@ -913,53 +950,86 @@ The adapter follows this protocol:
         "quarantine_path": "<validated absolute path>",
          "fence_before": "<immutable fence snapshot>",
          "fence_after": "<immutable fence snapshot>",
+         "fresh_lock_before": "<immutable fresh-lock snapshot or null>",
          "fresh_lock_after": "<new token/generation/epoch owner snapshot>",
-         "phase": "prepared|evidence-published|predecessor-updated|target-updated|target-not-applicable|orphan-quarantined|fence-advanced|fresh-lock-created|committed|rollback-started|rollback-evidence-restored|rollback-predecessor-restored|rollback-target-restored|rollback-lock-restored|rolled-back|manual-reconciliation"
-       }
-       ```
+         "phase": "prepared|server-ownership-updated|workspace-cleanup-published|result-published|evidence-published|predecessor-updated|target-updated|target-not-applicable|orphan-quarantined|fence-advanced|fresh-lock-created|committed|rollback-started|rollback-evidence-restored|rollback-server-restored|rollback-workspace-restored|rollback-result-restored|rollback-result-lock-restored|rollback-deadline-restored|rollback-recovery-lock-restored|rollback-server-start-lock-restored|rollback-predecessor-restored|rollback-target-restored|rollback-transfer-restored|rollback-quarantine-restored|rollback-fence-restored|rollback-fresh-lock-restored|rollback-lock-restored|rolled-back|manual-reconciliation",
+         "phase_history": [{"phase":"prepared","outcome":"applied","before_digest":"<digest>","after_digest":"<digest>","recorded_at":"<RFC3339>"}]
+        }
+        ```
 
-       The writer uses a unique temporary file, flushes it (and the containing
-       directory where supported), then renames it atomically to the intent
-       path. It writes `phase=prepared` first. It then publishes the validated
-       recovery-evidence ledger record, advances to `phase=evidence-published`,
-       atomically publishes the predecessor state (abandoned for reconcile,
-       transferred for recover), and advances to
-       `phase=predecessor-updated`. For recover it atomically publishes the
-       already-existing target state and advances to `phase=target-updated`;
-       reconcile records the explicit no-target transition and advances to
-       `phase=target-not-applicable`. It then atomically renames the orphan lock
-       into the recorded quarantine path, advances to
-       `phase=orphan-quarantined`, atomically advances the fence to invalidate
-       the old token/generation, advances to `phase=fence-advanced`, creates
-       the fresh lock owner record with the new token/generation/epoch, advances
-       to `phase=fresh-lock-created`, and only then marks `phase=committed`.
+        Snapshot digests use SHA-256 over canonical UTF-8 JSON with recursively
+        sorted object keys, no insignificant whitespace, and no trailing
+        newline. `phase_history` is a JSON array, not an encoded string; each
+        entry contains `phase`, `outcome` (`applied` or `noop`),
+        `before_digest`, `after_digest`, and `recorded_at`. The intent includes
+        the recovery-lock, server-start-lock, result-lock, and deadline/cancel
+        snapshots even when their values are null, so replay can distinguish an
+        unmodified lock from a missing record.
+
+        The writer uses a unique temporary file, flushes it (and the containing
+        directory where supported), then renames it atomically to the intent
+        path. It writes `phase=prepared` and the initial prepared event in
+        `phase_history` first. If the transaction changes a
+        server owner, workspace, or result, it publishes the corresponding
+        before/after snapshot and advances through
+        `server-ownership-updated`, `workspace-cleanup-published`, or
+        `result-published`; an inapplicable phase is recorded in
+        `phase_history` with `outcome=noop` and matching before/after digests,
+        rather than omitted. The current phase and its append-only history entry
+        are atomically published together. It then publishes the validated
+        recovery-evidence ledger,
+        advances to `phase=evidence-published`, atomically publishes the
+        predecessor state (abandoned for reconcile, transferred for recover),
+        and advances to `phase=predecessor-updated`. For recover it atomically
+        publishes the already-existing target state and advances to
+        `phase=target-updated`; reconcile records the explicit no-target
+        transition and advances to `phase=target-not-applicable`. It then
+        atomically renames the orphan lock into the recorded quarantine path,
+        advances to `phase=orphan-quarantined`, atomically advances the fence to
+        invalidate the old token/generation, advances to `phase=fence-advanced`,
+        creates the fresh lock owner record with the new token/generation/epoch,
+        advances to `phase=fresh-lock-created`, and only then marks
+        `phase=committed`.
        Every mutation is named by an immutable before/after snapshot in this
        same intent, and every phase record is itself atomically published. The
        committed intent remains as an audit record. No workspace close is
        permitted while an intent for that exact task/path is incomplete.
 
-       Startup and explicit recovery scan incomplete intents while holding the
-       same lock, before beginning a new ownership action. They may replay or
-       roll back one only after validating the intent's task, both IDs and
-       tokens, exact resolved worktree, workspace ID, evidence digest, every
-       recorded lock/fence path, all record/relationship snapshots, and a
-       fresh live Herdr exact-path result. A `prepared` intent whose evidence,
-       records, and lock state are still their recorded originals is rolled
-       back by advancing `rollback-started`, then `rolled-back`; no separate
-       evidence or record mutation is allowed. A later phase is replayed only
+        Startup and explicit recovery scan incomplete intents while holding the
+        same lock, before beginning a new ownership action. They may replay or
+        roll back one only after validating the intent's task, both IDs and
+        tokens, exact resolved worktree, workspace ID, evidence digest, every
+        recorded lock/fence path, all server/workspace/result/record/relationship
+        snapshots, every lock snapshot, deadline/cancel snapshot, and a fresh
+        live Herdr exact-path result. A `prepared` intent whose evidence,
+        server, workspace, result, records, every lock, and deadline/cancel state are
+        still their recorded originals is rolled back by advancing
+        `rollback-started`, then `rolled-back`; no separate evidence, server,
+        workspace, result, or record mutation is allowed. If a mutation is
+        visible while its phase is still `prepared`, replay first matches the
+        recorded after-snapshot and advances that phase, or safely rolls back
+        only when the before/after identity proves it; it never assumes the
+        mutation was absent. A later phase is replayed only
        in its recorded order, one missing publication at a time, when all
        earlier snapshots, token/generation fences, quarantine identity,
        fresh-lock metadata, evidence identity, and live exact-path identity
        pass. Each replayed mutation advances the same intent before and after
        the mutation.
 
-       If replay cannot be uniquely proven, rollback may restore the recorded
-       evidence, predecessor, target, and lock snapshots only after recording
-       `rollback-started` and only when the live path/ID and every owner-token
-       and generation check prove that restoration is safe. The intent records
-       `rollback-evidence-restored`, `rollback-predecessor-restored`,
-       `rollback-target-restored`, and `rollback-lock-restored` as applicable,
-       then `rolled-back`. If any restoration is unsafe, it makes no further
+        If replay cannot be uniquely proven, rollback may restore the recorded
+        evidence, server, workspace, result, predecessor, target, and lock
+        snapshots only after recording `rollback-started` and only when the live
+        path/ID and every owner-token and generation check prove that restoration
+        is safe. The intent records `rollback-evidence-restored`,
+        `rollback-server-restored`, `rollback-workspace-restored`,
+        `rollback-result-restored`, `rollback-result-lock-restored`,
+        `rollback-deadline-restored`, `rollback-recovery-lock-restored`,
+        `rollback-server-start-lock-restored`, `rollback-predecessor-restored`,
+        `rollback-target-restored`, `rollback-transfer-restored`,
+        `rollback-quarantine-restored`, `rollback-fence-restored`,
+        `rollback-fresh-lock-restored`, and `rollback-lock-restored` as
+        applicable,
+        then `rolled-back`. If any restoration is unsafe, it makes no further
        state mutation, marks the same intent `manual-reconciliation`, and
        reports the conflicting IDs/tokens/paths. Startup must complete this
        replay/rollback scan before any new ownership action. It never silently
@@ -977,12 +1047,14 @@ The adapter follows this protocol:
       confirmation (a missing `--confirm` aborts):
 
       ```sh
-      workspace reconcile --task 009 --from-run <OLD_ID> --state acquiring \
-        --worktree /Users/gary/Projects/gschambers/brushtales/.worktrees/009 \
-        --workspace-id <W_ID> --evidence <ABSOLUTE_EVIDENCE.json> --confirm
-      workspace reconcile --task 009 --from-run <OLD_ID> --state current \
-        --worktree /Users/gary/Projects/gschambers/brushtales/.worktrees/009 \
-        --workspace-id <W_ID> --evidence <ABSOLUTE_EVIDENCE.json> --confirm
+       brushtales-herdr workspace reconcile --task 009 --from-run <OLD_ID> --state acquiring \
+         --owner-token <OLD_OWNER_TOKEN> --generation <OLD_GENERATION> \
+         --worktree /Users/gary/Projects/gschambers/brushtales/.worktrees/009 \
+         --workspace-id <W_ID> --evidence <ABSOLUTE_EVIDENCE.json> --confirm
+       brushtales-herdr workspace reconcile --task 009 --from-run <OLD_ID> --state current \
+         --owner-token <OLD_OWNER_TOKEN> --generation <OLD_GENERATION> \
+         --worktree /Users/gary/Projects/gschambers/brushtales/.worktrees/009 \
+         --workspace-id <W_ID> --evidence <ABSOLUTE_EVIDENCE.json> --confirm
       ```
 
        The first command is for a crashed `acquiring` process; the second is for
@@ -1015,11 +1087,11 @@ The adapter follows this protocol:
        `acquiring -> abandoned` or `current -> abandoned`, including the
        evidence path, exact worktree/ID, operator, and reason, and leaves the
        workspace open. Only after that intent is `committed` may the operator
-       run the normal transfer procedure; `workspace recover` creates its own
+       run the normal transfer procedure; `brushtales-herdr workspace recover` creates its own
        single intent for the predecessor/target transfer and lock transition:
 
       ```sh
-      workspace recover --task 009 --from-run <OLD_ID> --to-run <NEW_ID> \
+      brushtales-herdr workspace recover --task 009 --from-run <OLD_ID> --to-run <NEW_ID> \
         --owner-token <TARGET_OWNER_TOKEN> \
         --expected-predecessor <OLD_ID> \
         --worktree /Users/gary/Projects/gschambers/brushtales/.worktrees/009 \
@@ -1027,7 +1099,7 @@ The adapter follows this protocol:
       ```
 
       The retry that owns `NEW_ID` must have created the acquiring target before
-      this command runs. `workspace recover` reacquires the lock, rereads both
+      this command runs. `brushtales-herdr workspace recover` reacquires the lock, rereads both
       records, repeats the exact path/ID query, and validates the target owner
        token and expected predecessor before preparing its one intent. The
        transfer, predecessor/target state changes, lock quarantine, generation
@@ -1048,15 +1120,18 @@ The adapter follows this protocol:
    active run's workspace. A shared Herdr server is never stopped; only a
    separately configured server recorded as `dedicated-owned` may be stopped
    by its owning run.
-    6. An operator intentionally abandoning a run uses the adapter's explicit
-       `workspace abandon --task 009 --run <RUN_ID>` command. It verifies the run
-       ID/token under the lock, prepares the same intent journal (with no target
-       transfer), and records `abandoned` through its evidence/state phases;
-       it leaves the workspace open by default. Adding `--close` requests close only after the same current-owner,
+     6. An operator intentionally abandoning a run uses the adapter's explicit
+        `brushtales-herdr workspace abandon --task 009 --run <RUN_ID>
+        --owner-token <OWNER_TOKEN> --worktree <ABSOLUTE_WORKTREE>
+        --evidence <ABSOLUTE_EVIDENCE.json> --confirm` command. It verifies the
+        run ID/token under the lock, prepares the same intent journal (with no
+        target transfer), and records `abandoned` through its evidence/state
+        phases; it leaves the workspace open by default. Adding `--close`
+        requests close only after the same current-owner,
    created-workspace, exact-ID, and non-active checks; `--close` and any
    `--force` option must never bypass another run's ownership. To reconcile a
     stale failed run, the retry first creates the exact acquiring target record,
-    then the operator uses `workspace recover --task 009
+    then the operator uses `brushtales-herdr workspace recover --task 009
     --from-run <OLD_ID> --to-run <NEW_ID> --owner-token <TARGET_OWNER_TOKEN>`;
     the command requires confirmation, stale failed/blocked evidence,
     exact-path/ID verification, matching expected predecessor, and records the
@@ -1071,16 +1146,21 @@ failure.
 
 ## Invocation and handoff contract
 
-No local `deliver` wrapper is added in this task. Once an adapter exists, its
-invocation must carry absolute paths and a validated worktree, for example:
+No local `deliver` wrapper is added in this task. Once task 012 supplies the
+canonical `brushtales-herdr` adapter, its invocation must carry absolute paths
+and a validated worktree, for example:
 
 ```sh
-deliver --dry-run --worktree \
+brushtales-herdr run --project-root \
+  /Users/gary/Projects/gschambers/brushtales \
+  --task 009 --mode local --worktree \
   /Users/gary/Projects/gschambers/brushtales/.worktrees/009 \
   --spec \
   /Users/gary/Projects/gschambers/brushtales/.worktrees/009/tmp/build-20260912-009.md
 ```
 
+The historical `deliver` name is an explanatory alias only; if retained, it
+must invoke this exact parser and may not silently route to the reference CLI.
 The reference CLI does not currently accept these BrushTales-specific flags;
 this example is the required future adapter contract, not a command that should
 be run against `/Users/gary/Projects/repro-dev/repro/bin/deliver` today. The
@@ -1113,7 +1193,7 @@ try:
         if stat.S_ISLNK(cursor.lstat().st_mode):
             raise ValueError("symlinked path component")
     print(path.resolve(strict=True))
-except (OSError, RuntimeError):
+except (OSError, RuntimeError, ValueError):
   raise SystemExit(1)
 PY
 }
@@ -1121,36 +1201,69 @@ PY
 WORKTREE_REAL="$(resolve_existing "$WORKTREE")" || abort "worktree cannot be resolved"
 SPEC_REAL="$(resolve_existing "$SPEC")" || abort "spec cannot be resolved"
 
-# Resolve the task through the repository's SQLite-backed resolver before any
+# Resolve the canonical main checkout before resolving task metadata. The shared
+# Git directory is the identity boundary: its checkout parent is the main root
+# for both the main checkout and feature worktrees. This prevents divergent
+# planning metadata in a feature worktree from selecting a different task.
+MAIN_GIT_COMMON="$(git -C "$WORKTREE_REAL" rev-parse --path-format=absolute --git-common-dir)" \
+  || abort "shared Git directory cannot be resolved"
+MAIN_GIT_COMMON_REAL="$(resolve_existing "$MAIN_GIT_COMMON")" \
+  || abort "shared Git directory cannot be resolved"
+MAIN_CANDIDATE="$(dirname "$MAIN_GIT_COMMON_REAL")"
+MAIN_REAL="$(resolve_existing "$MAIN_CANDIDATE")" \
+  || abort "canonical main checkout cannot be resolved"
+MAIN_ROOT="$(git -C "$MAIN_REAL" rev-parse --show-toplevel)" \
+  || abort "canonical main checkout is not a Git root"
+MAIN_ROOT="$(resolve_existing "$MAIN_ROOT")" || abort "main Git root cannot be resolved"
+test "$MAIN_ROOT" = "$MAIN_REAL" || abort "canonical main root mismatch"
+test "$MAIN_REAL" != "$WORKTREE_REAL" || abort "feature worktree must not be the main checkout"
+
+# Resolve the task through the main checkout's SQLite-backed resolver before any
 # workspace or pane side effect. The resolver prints id|slug|path|...; only its
 # path field is authoritative. TASK_REAL is the realpath of the supplied task
 # context and must be exactly the realpath of that SQLite-selected path.
+REPO_ROOT="$MAIN_REAL"
 TASK_ID="$(basename "$TASK" | cut -c1-3)"
 case "$TASK_ID" in
   [0-9][0-9][0-9]) : ;; *) abort "task path does not contain a numeric task ID" ;;
 esac
-REPO_ROOT="$(git -C "$WORKTREE_REAL" rev-parse --show-toplevel)" \
-  || abort "repository root cannot be resolved"
-REPO_ROOT="$(resolve_existing "$REPO_ROOT")" || abort "repository root cannot be resolved"
 TASK_ROW="$(cd "$REPO_ROOT" && bash planning/resolve-task.sh "$TASK_ID")" \
   || abort "SQLite task resolver failed"
 TASK_INDEX_PATH="$(printf '%s\n' "$TASK_ROW" | cut -d'|' -f3)"
 test -n "$TASK_INDEX_PATH" || abort "SQLite task resolver returned no canonical path"
-TASK_INDEX_REAL="$(resolve_existing "$REPO_ROOT/$TASK_INDEX_PATH")" \
-  || abort "SQLite canonical task path cannot be resolved"
+TASK_INDEX_MAIN_REAL="$(resolve_existing "$MAIN_REAL/$TASK_INDEX_PATH")" \
+  || abort "SQLite canonical main task path cannot be resolved"
+TASK_INDEX_WORKTREE_REAL="$(resolve_existing "$WORKTREE_REAL/$TASK_INDEX_PATH")" \
+  || abort "SQLite task path is missing from the feature worktree"
 TASK_REAL="$(resolve_existing "$TASK")" || abort "canonical planning task cannot be resolved"
-test "$TASK_INDEX_REAL" = "$TASK_REAL" \
-  || abort "task path does not equal SQLite canonical task path"
+test "$TASK_INDEX_WORKTREE_REAL" = "$TASK_REAL" \
+  || abort "task path does not equal SQLite-selected feature-worktree path"
+# A task path is not enough: hash both regular files through no-follow file
+# descriptors and require identical bytes before using either task document.
+TASK_MAIN_DIGEST="$(hash_regular_file_no_follow "$TASK_INDEX_MAIN_REAL")" \
+  || abort "canonical main task digest cannot be computed"
+TASK_WORKTREE_DIGEST="$(hash_regular_file_no_follow "$TASK_INDEX_WORKTREE_REAL")" \
+  || abort "feature task digest cannot be computed"
+test "$TASK_MAIN_DIGEST" = "$TASK_WORKTREE_DIGEST" \
+  || abort "main and feature task contents differ"
 
 # A second planning/<id>-*.md file is ambiguous even if it is not the path the
-# caller supplied. Resolve every candidate so symlink aliases cannot bypass
-# this check; reject before opening a workspace or allowing any edit.
+# caller supplied. Resolve every candidate in both roots so symlink aliases or
+# divergent feature metadata cannot bypass this check; reject before opening a
+# workspace or allowing any edit.
 for TASK_CANDIDATE in "$REPO_ROOT"/planning/"$TASK_ID"-*.md; do
   test -e "$TASK_CANDIDATE" || test -L "$TASK_CANDIDATE" || continue
   TASK_CANDIDATE_REAL="$(resolve_existing "$TASK_CANDIDATE")" \
     || abort "alternate planning task cannot be resolved"
-  test "$TASK_CANDIDATE_REAL" = "$TASK_REAL" \
+  test "$TASK_CANDIDATE_REAL" = "$TASK_INDEX_MAIN_REAL" \
     || abort "alternate planning task file exists for $TASK_ID"
+done
+for TASK_CANDIDATE in "$WORKTREE_REAL"/planning/"$TASK_ID"-*.md; do
+  test -e "$TASK_CANDIDATE" || test -L "$TASK_CANDIDATE" || continue
+  TASK_CANDIDATE_REAL="$(resolve_existing "$TASK_CANDIDATE")" \
+    || abort "alternate feature planning task cannot be resolved"
+  test "$TASK_CANDIDATE_REAL" = "$TASK_INDEX_WORKTREE_REAL" \
+    || abort "alternate feature planning task file exists for $TASK_ID"
 done
 
 test -d "$WORKTREE_REAL" || abort "resolved worktree is not a directory"
@@ -1161,24 +1274,14 @@ case "$SPEC_REAL" in
   "$WORKTREE_REAL"/*) : ;; *) abort "resolved spec is outside the feature worktree" ;;
 esac
 case "$TASK_REAL" in
-  "$WORKTREE_REAL"/planning/[0-9][0-9][0-9]-*.md) : ;; *) abort "resolved task is outside canonical planning path" ;;
+  "$WORKTREE_REAL"/planning/[0-9][0-9][0-9]-*.md) : ;; *) abort "resolved task is outside feature planning path" ;;
 esac
-# Git's first porcelain worktree entry is the registered main checkout. Resolve
-# it before any Herdr call, pane opening, edit, or other workspace side effect.
-MAIN_CANDIDATE="$(git -C "$WORKTREE_REAL" worktree list --porcelain \
-  | sed -n '1s/^worktree //p')"
-test -n "$MAIN_CANDIDATE" || abort "registered main worktree is unavailable"
-MAIN_REAL="$(resolve_existing "$MAIN_CANDIDATE")" \
-  || abort "registered main worktree cannot be resolved"
-test "$MAIN_REAL" != "$WORKTREE_REAL" || abort "feature worktree must not be the registered main checkout"
-MAIN_ROOT="$(git -C "$MAIN_REAL" rev-parse --show-toplevel)" \
-  || abort "registered main checkout is not a Git root"
-MAIN_ROOT="$(resolve_existing "$MAIN_ROOT")" || abort "main Git root cannot be resolved"
-test "$MAIN_ROOT" = "$MAIN_REAL" || abort "registered main root mismatch"
-test "$MAIN_ROOT" = "$REPO_ROOT" || abort "task resolver root differs from registered main root"
+# The canonical root above, rather than worktree-list ordering, is authoritative
+# for task resolution and every project-local Herdr namespace.
+test "$MAIN_ROOT" = "$REPO_ROOT" || abort "task resolver root differs from canonical main root"
 
 # The task worktree is not merely any registered Git worktree: it must be the
-# exact task-named child of the registered main checkout.
+# exact task-named child of the canonical main checkout.
 EXPECTED_WORKTREE="$MAIN_REAL/.worktrees/$TASK_ID"
 EXPECTED_WORKTREE_REAL="$(resolve_existing "$EXPECTED_WORKTREE")" \
   || abort "expected task worktree is missing"
@@ -1192,26 +1295,33 @@ test "$ROOT" = "$WORKTREE_REAL" || abort "resolved worktree root mismatch"
 ```
 
 The outer `/build 009` command runs `bash planning/resolve-task.sh 009` (with the
-normalized numeric ID) from the validated repository/main root, takes the
-resolver's repository-relative `path` field, prefixes that root, and only then
-passes the absolute candidate to the strict resolver. It compares that realpath
-with `TASK_REAL`. This SQLite-backed comparison is mandatory; a
+normalized numeric ID) from the canonical main root, takes the resolver's
+repository-relative `path` field, validates the corresponding paths under both
+the main root and the exact feature worktree, and compares the supplied task
+context with the feature-worktree path. This SQLite-backed comparison is
+mandatory; a
 glob or a caller-selected `planning/009-*.md` is not a task identity. Every
 other matching planning file is resolved and rejected before any workspace or
 pane side effect. The outer task selector remains numeric (`009`); the direct
 child receives only the separate canonical task/spec context and never an
 alternate `/build` selector.
 
+`hash_regular_file_no_follow` is a required adapter primitive, not a shell
+alias: it opens a regular file with no-follow semantics after the same
+component walk, streams its bytes into SHA-256, and rejects symlinks, devices,
+and changed descriptor identity. A path-only or lexical hash is insufficient
+for the task-content fence.
+
 The Python `pathlib.Path.resolve(strict=True)` resolver rejects raw `..`
 components and resolves symlinks without requiring GNU `realpath` or its
 nonportable `--` option. The resolved worktree,
 spec, and task are checked before any edits or workspace opening, so a symlinked
 spec outside the worktree is rejected. A candidate containing `..` is rejected
-before resolution rather than normalized into an apparently safe path. The first
-`git worktree list --porcelain`
-entry is resolved as the registered main checkout; the feature worktree must be
-different from it and must equal that checkout's exact `.worktrees/<task-id>`
-child. The resolved `git rev-parse --show-toplevel` result must exactly equal
+before resolution rather than normalized into an apparently safe path. The
+shared Git directory's checkout parent is resolved as the canonical main
+checkout; the feature worktree must be different from it and must equal that
+checkout's exact `.worktrees/<task-id>` child. The resolved
+`git rev-parse --show-toplevel` result must exactly equal
 the resolved feature worktree, not merely a parent or a path that happens to
 contain it. Any mismatch aborts before edits or workspace opening. The main checkout remains untouched
 during delegated edits because the child panes, prompts, and all write commands
@@ -1349,34 +1459,37 @@ The smallest useful local change is this durable plan plus `brew "python"`,
 All three are developer tools only; `brew bundle` installs them; failure is a
 preflight failure with the manual-install fallback described above, never an app
 runtime failure or dependency. Keep `/build`, the current task-ID resolver, the
-existing `.worktrees/<task-id>` convention, approval-gated Git helper, and
-builder/adversary workflow unchanged. Revisit adapter implementation after the
-Expo shell and package-manager choice exist.
+  existing `.worktrees/<task-id>` convention, approval-gated Git helper, and
+  builder/adversary workflow unchanged. The follow-up implementation begins with
+  project-local Herdr host validation; it does not wait on app runtime packaging.
 
-Separately approved follow-up tasks must be created and indexed before the
-adapter is implemented; this investigation intentionally leaves their IDs
-unassigned. The required outcomes are:
+The separately approved follow-up tasks are now created and indexed before the
+adapter implementation. Their required outcomes are:
 
-- **Supported Herdr host-surface validation:** validate a documented standalone
+- **010 — Supported Herdr host-surface validation:** validate a documented standalone
   Herdr startup and readiness sequence for the supported version, exact-path
   workspace reuse, `70:30` panes, workspace close without stopping other
-  sessions, and the executable host lock/reclaimer command surface.
-- **BrushTales deliver adapter design:** design a local-task-ID adapter that
-  accepts absolute `--worktree`/`--spec`, never implicitly pushes, and maps
-  builder/adversary prompts to `/build`'s contracts.
-- **001 provisioning follow-up:** after the Expo shell is provisioned, record
-  the package manager, lockfile, install command, Expo doctor/prebuild policy,
-  and failure gate in the task and its test plan.
-- **Disposable integration and recovery fixture:** exercise adoption, terminal
+  sessions, and record the available host workspace/pane command surface. Any
+  missing lock/reclaimer commands become implementation requirements for task
+  014 rather than an assumed Herdr capability.
+- **011 — Project-local Herdr lifecycle:** implement an owned server/config
+  lifecycle that cannot accidentally attach to the shared global server.
+- **014 — Run ownership and recovery:** implement the result/workspace locks,
+  transfer intent, quarantine, and recovery behavior required for interrupted
+  or stale runs.
+- **012 — Workspace-aware commands and wrappers:** implement the local-task-ID
+  adapter and make `/build`, `/review`, `/verify`, and wrapping CLIs carry exact
+  project/worktree/workspace context.
+- **013 — Disposable integration and recovery validation:** exercise adoption, terminal
   install failure, Herdr-unavailable fallback, prompt handoff, review gate,
   cleanup, and the result/workspace-lock recovery protocol (including transfer
   journal replay/rollback) in a disposable task without touching the main
   checkout or storing child media. No lock-recovery pass is claimed until this
   fixture is executable and its exact output is recorded.
 
-No follow-up ID is implied by these outcome descriptions. A task must first be
-added to the canonical planning Markdown and SQLite index through the normal
-planning workflow, then may be selected by a future adapter implementation.
+Each follow-up task is canonical in `planning/` and indexed in SQLite through the
+normal planning workflow. Implementation must proceed in dependency order and
+must not begin from the global Herdr workspace namespace by accident.
 
 The reference's useful generic improvements (absolute context handoff, exact-path
 workspace reuse, readiness polling, and non-destructive fallback) can be
@@ -1474,7 +1587,7 @@ a future shell-template adapter must reject raw `..` syntax before shlex or
 operator handling. It must still parse and fence generated template/argv values
 and may not accept arbitrary user shell text.
 
-1. Resolve the registered main checkout to `MAIN_REAL` using the same
+1. Resolve the canonical main checkout to `MAIN_REAL` using the same
    symlink-aware resolver as the adapter. Before launching any child or writing
    the fixture, capture:
      `git -C "$MAIN_REAL" status --porcelain=v1 --untracked-files=all -z`,
@@ -1585,15 +1698,16 @@ The complete test matrix is:
   The required future-adapter orphan-lock protocol uses a separate
   parent-level reclaimer lock, explicit evidence/confirmation, atomic
   quarantine, fresh owner record, an invalidating token/generation fence, and
-  one transfer-intent journal spanning record publication and lock transition;
-  normal callers never reclaim. This is specified only, not runtime-proven.
+  one transfer-intent journal spanning server/workspace/result publication,
+  record publication, cleanup, and lock transition; normal callers never
+  reclaim. This is specified only, not runtime-proven.
 - [x] Exact-task/worktree concurrency treats `acquiring` and `current` records
   as busy, requires one retry target, rejects competing targets, and uses a
   crash-safe, token/path/ID-bound transfer intent journal.
 - [ ] Executable Herdr/result-lock/reclaimer recovery is intentionally deferred
-  to separately approved, indexed follow-up tasks whose IDs are currently
-  unassigned; task 009 specifies the required future-adapter contract but does
-  not claim a runtime implementation or passing recovery validation.
+  to indexed follow-up tasks 010–014. Task 009 specifies the required
+  future-adapter contract but does not claim a runtime implementation or passing
+  recovery validation.
 - [x] Package-manager detection and the future Expo provisioning phase precede
   the first OpenCode turn and report current prerequisites unavailable.
 - [x] `70:30` layout and absolute spec/worktree handoff to builder and adversary
@@ -1611,7 +1725,7 @@ The complete test matrix is:
   must supply its own disposable fixture or adapter test recipe. Executable
   Herdr, result-lock, and
   reclaimer recovery validation remains separately deferred to approved, indexed
-  follow-up tasks with IDs still unassigned and is not claimed here.
+  tasks 010–014 and is not claimed here.
  - [x] **Delivery-baseline decision:** the user explicitly accepted committed
    baseline `10c648e` as part of this delivery on 2026-09-12. The PR must disclose
    that the range is not task-009-only; no clean-range claim is made.
