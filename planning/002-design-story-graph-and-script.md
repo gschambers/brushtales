@@ -2,7 +2,6 @@
 
 - **Status:** todo
 - **Priority:** critical
-- **Sequence:** 2
 - **Summary:** Write one original audio-first fantasy story with branching outcomes.
 - **Labels:** content, audio, story
 - **Depends on:** 001

@@ -14,10 +14,15 @@ Every task should declare:
 
 - status: `todo`, `in_progress`, `blocked`, `done`, or `cancelled`;
 - priority: `critical`, `high`, `medium`, or `low`;
-- sequence: an integer execution order;
 - summary: a one-line searchable description;
 - labels: one or more concise categories; and
 - dependencies: task IDs that should be completed first.
+
+Execution sequence is an index concern and is stored only in `index.sqlite3`.
+Do not put sequence numbers in task Markdown; reordering tasks should update the
+index without touching every task file. Markdown remains the human-readable
+source of truth for task intent, acceptance criteria, and notes; SQLite stores
+queryable metadata and relationships rather than the full document body.
 
 ## Useful queries
 
@@ -38,6 +43,13 @@ sqlite3 -header -column planning/index.sqlite3 \
 `schema.sql` documents the database schema and can recreate the empty database. The checked-in SQLite file is seeded with the current task index.
 
 Run `bash planning/verify-index.sh` to validate SQLite integrity, bidirectional task-file coverage, dependency foreign keys, and task counts.
+
+Durable planning documents live in `planning/*.md` and durable research notes live
+in `research/*.md`. Run-scoped scratch material—delegation specs, logs, PR drafts,
+and disposable fixtures—lives under the git-ignored `tmp/` directory. A missing
+`tmp/` artifact is recreated by the run; it is not added to `planning/index.sqlite3`.
+The task-009 isolation fixture was run-scoped evidence only and is not expected in
+a fresh checkout.
 
 Run `bash planning/resolve-task.sh 001` to resolve a task ID to its indexed metadata without writing SQL from the agent workflow.
 

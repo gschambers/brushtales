@@ -2,7 +2,6 @@
 
 - **Status:** todo
 - **Priority:** high
-- **Sequence:** 5
 - **Summary:** Implement deterministic two-minute session state and clip playback.
 - **Labels:** audio, session, timer
 - **Depends on:** 001, 003

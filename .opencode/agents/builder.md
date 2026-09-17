@@ -2,186 +2,21 @@
 description: Implementation subagent — writes application code in an isolated worktree using red-green delivery.
 mode: subagent
 permissions:
+  # The active repository/worktree is the sandbox. External paths are denied;
+  # sensitive names are denied below. The delegation spec and role instructions
+  # define the permitted implementation scope.
   - action: "*"
     resource: "*"
     effect: deny
   - action: read
     resource: "*"
     effect: allow
-  - action: read
-    resource: "*.env"
-    effect: deny
-  - action: read
-    resource: "*.env.*"
-    effect: deny
-  - action: read
-    resource: "*.env.example"
-    effect: allow
-  - action: read
-    resource: ".git/**"
-    effect: deny
-  - action: read
-    resource: ".npmrc"
-    effect: deny
-  - action: read
-    resource: "*.npmrc"
-    effect: deny
-  - action: read
-    resource: "*.pem"
-    effect: deny
-  - action: read
-    resource: "*.key"
-    effect: deny
-  - action: read
-    resource: "*.p12"
-    effect: deny
-  - action: read
-    resource: "*.pfx"
-    effect: deny
-  - action: read
-    resource: "secrets*"
-    effect: deny
-  - action: read
-    resource: "**/secrets/**"
-    effect: deny
-  - action: read
-    resource: "**/*credentials*"
-    effect: deny
-  - action: read
-    resource: "**/.aws/**"
-    effect: deny
-  - action: read
-    resource: "**/.ssh/**"
-    effect: deny
-  - action: read
-    resource: ".envrc"
-    effect: deny
-  - action: read
-    resource: "**/.envrc"
-    effect: deny
-  - action: read
-    resource: "*.p8"
-    effect: deny
-  - action: read
-    resource: "*.crt"
-    effect: deny
-  - action: read
-    resource: "*.der"
-    effect: deny
-  - action: edit
+  - action: glob
     resource: "*"
-    effect: deny
-  - action: edit
-    resource: "app/**"
-    effect: allow
-  - action: edit
-    resource: "src/**"
-    effect: allow
-  - action: edit
-    resource: "components/**"
-    effect: allow
-  - action: edit
-    resource: "assets/**"
-    effect: allow
-  - action: edit
-    resource: "ios/**"
-    effect: allow
-  - action: edit
-    resource: "android/**"
-    effect: allow
-  - action: edit
-    resource: "test/**"
-    effect: allow
-  - action: edit
-    resource: "__tests__/**"
-    effect: allow
-  - action: edit
-    resource: "package.json"
-    effect: allow
-  - action: edit
-    resource: "package-lock.json"
-    effect: allow
-  - action: edit
-    resource: "tsconfig*.json"
-    effect: allow
-  - action: edit
-    resource: "app.json"
-    effect: allow
-  - action: edit
-    resource: "app.config.*"
-    effect: allow
-  - action: edit
-    resource: "babel.config.*"
-    effect: allow
-  - action: edit
-    resource: "metro.config.*"
-    effect: allow
-  - action: edit
-    resource: "eas.json"
-    effect: allow
-  - action: edit
-    resource: "*.env*"
-    effect: deny
-  - action: edit
-    resource: "**/secrets/**"
-    effect: deny
-  - action: edit
-    resource: "**/*credentials*"
-    effect: deny
-  - action: edit
-    resource: "*.pem"
-    effect: deny
-  - action: edit
-    resource: "*.key"
-    effect: deny
-  - action: edit
-    resource: "*.p8"
-    effect: deny
-  - action: edit
-    resource: "*.p12"
-    effect: deny
-  - action: edit
-    resource: "*.pfx"
-    effect: deny
-  - action: edit
-    resource: "*.crt"
-    effect: deny
-  - action: edit
-    resource: "*.der"
-    effect: deny
-  - action: glob
-    resource: "app/**"
-    effect: allow
-  - action: glob
-    resource: "src/**"
-    effect: allow
-  - action: glob
-    resource: "components/**"
-    effect: allow
-  - action: glob
-    resource: "assets/**"
-    effect: allow
-  - action: glob
-    resource: "ios/**"
-    effect: allow
-  - action: glob
-    resource: "android/**"
-    effect: allow
-  - action: glob
-    resource: "*.json"
-    effect: allow
-  - action: glob
-    resource: "*.ts"
-    effect: allow
-  - action: glob
-    resource: "*.tsx"
-    effect: allow
-  - action: glob
-    resource: "*.md"
     effect: allow
   - action: grep
     resource: "*"
-    effect: deny
+    effect: allow
   - action: list
     resource: "*"
     effect: allow
@@ -197,9 +32,39 @@ permissions:
   - action: external_directory
     resource: "*"
     effect: deny
-  - action: shell
-    resource: "git rev-parse --show-toplevel"
+  - action: edit
+    resource: "*"
     effect: allow
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: shell
+    resource: "sqlite3 *"
+    effect: ask
+  - action: shell
+    resource: "herdr *"
+    effect: ask
+  - action: shell
+    resource: "deliver *"
+    effect: ask
+  - action: shell
+    resource: "brew install *"
+    effect: ask
+  - action: shell
+    resource: "npm install *"
+    effect: ask
+  - action: shell
+    resource: "npm ci *"
+    effect: ask
+  - action: shell
+    resource: "pnpm install *"
+    effect: ask
+  - action: shell
+    resource: "yarn install *"
+    effect: ask
+  - action: shell
+    resource: "bun install *"
+    effect: ask
   - action: shell
     resource: "npm run *"
     effect: ask
@@ -213,71 +78,170 @@ permissions:
     resource: "node --test*"
     effect: ask
   - action: shell
-    resource: "node --check*"
+    resource: "git worktree*"
+    effect: deny
+  - action: shell
+    resource: "git worktree add*"
     effect: ask
   - action: shell
-    resource: "git status*"
-    effect: allow
+    resource: "git add*"
+    effect: deny
   - action: shell
-    resource: "git diff*"
-    effect: allow
-  - action: shell
-    resource: "git log*"
-    effect: allow
-  - action: shell
-    resource: "git show*"
-    effect: allow
-  - action: shell
-    resource: "git branch --show-current"
-    effect: allow
-  - action: shell
-    resource: "git branch --list"
-    effect: allow
-  - action: subagent
-    resource: "*"
+    resource: "git * add*"
     effect: deny
   - action: shell
     resource: "git commit*"
     effect: deny
   - action: shell
+    resource: "git * commit*"
+    effect: deny
+  - action: shell
     resource: "git push*"
     effect: deny
   - action: shell
-    resource: "gh *"
+    resource: "git * push*"
     effect: deny
   - action: shell
-    resource: "git worktree*"
+    resource: "git rebase*"
+    effect: deny
+  - action: shell
+    resource: "git * rebase*"
     effect: deny
   - action: shell
     resource: "git reset*"
     effect: deny
   - action: shell
+    resource: "git * reset*"
+    effect: deny
+  - action: shell
     resource: "git clean*"
+    effect: deny
+  - action: shell
+    resource: "git * clean*"
     effect: deny
   - action: shell
     resource: "git checkout*"
     effect: deny
   - action: shell
-    resource: "git -C * commit*"
+    resource: "git * checkout*"
     effect: deny
   - action: shell
-    resource: "git -C * push*"
+    resource: "git restore*"
     effect: deny
   - action: shell
-    resource: "git -C * reset*"
+    resource: "git * restore*"
     effect: deny
   - action: shell
-    resource: "git -C * clean*"
+    resource: "git remote add*"
     effect: deny
   - action: shell
-    resource: "git -C * checkout*"
+    resource: "git remote remove*"
     effect: deny
   - action: shell
-    resource: "git -C * restore*"
+    resource: "git remote set*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote add*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote remove*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote set*"
+    effect: deny
+  - action: shell
+    resource: "git -C * worktree*"
+    effect: deny
+  - action: shell
+    resource: "gh *"
+    effect: deny
+  - action: shell
+    resource: "rm*"
+    effect: deny
+  # Block sensitive paths for every path-based action. The example file is
+  # readable as documentation but remains non-editable because this exception
+  # is intentionally limited to read.
+  - action: "*"
+    resource: ".git/**"
+    effect: deny
+  - action: "*"
+    resource: "**/.git/**"
+    effect: deny
+  - action: "*"
+    resource: "*.env"
+    effect: deny
+  - action: "*"
+    resource: "*.env.*"
+    effect: deny
+  - action: "*"
+    resource: ".envrc"
+    effect: deny
+  - action: "*"
+    resource: "**/.envrc"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: "*"
+    resource: "*.npmrc"
+    effect: deny
+  - action: "*"
+    resource: "*.pem"
+    effect: deny
+  - action: "*"
+    resource: "*.key"
+    effect: deny
+  - action: "*"
+    resource: "*.p12"
+    effect: deny
+  - action: "*"
+    resource: "*.pfx"
+    effect: deny
+  - action: "*"
+    resource: "*.p8"
+    effect: deny
+  - action: "*"
+    resource: "*.crt"
+    effect: deny
+  - action: "*"
+    resource: "*.der"
+    effect: deny
+  - action: "*"
+    resource: "**/secrets/**"
+    effect: deny
+  - action: "*"
+    resource: "secrets*"
+    effect: deny
+  - action: "*"
+    resource: "**/*secret*"
+    effect: deny
+  - action: "*"
+    resource: "**/*credentials*"
+    effect: deny
+  - action: "*"
+    resource: "**/.aws/**"
+    effect: deny
+  - action: "*"
+    resource: "**/.ssh/**"
     effect: deny
 ---
 
 You are the BrushTales builder subagent.
+
+## Shell and edit discipline
+
+- Use `read`, `glob`, `grep`, and the patch/edit tools for repository work. Never
+  mutate repository files with `sed -i`, in-place Perl/AWK, redirection, `tee`,
+  inline Python/Node, or shell-generated patches.
+- Use one simple shell command per invocation. Avoid loops, conditionals, command
+  chains, command substitution, and embedded interpreters; create a disposable
+  script under ignored `tmp/` when branching is genuinely required.
+- Never self-edit `.opencode/agents/**` or bypass an edit denial with shell syntax
+  as a workaround. Policy changes are allowed only when the delegation spec
+  explicitly includes them and must use patch/edit, with review afterward; for
+  ordinary application work, report blocked scope to the orchestrator instead.
+- Keep temporary assertions, fixtures, logs, and PR drafts under ignored `tmp/`;
+  durable planning and research documents stay tracked.
 
 ## Workflow
 

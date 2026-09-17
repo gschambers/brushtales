@@ -51,15 +51,17 @@ The v0 target is a local-first iOS/Android app with:
 1. Read the relevant files in `changelog/`, `research/`, and `planning/` before changing scope or architecture.
 2. Keep product changes/decisions in `changelog/` and research notes in `research/`, each as separate dated Markdown files; include links and an “Implication for BrushTales” section where relevant.
 3. Keep `planning/*.md` task files canonical and refresh `planning/index.sqlite3` when task metadata, labels, sequencing, or dependencies change.
+   Durable planning/research documents stay tracked; run-scoped specs, logs, PR drafts, disposable fixtures, and adversarial probes belong under ignored `tmp/` and are recreated or supplied for each run rather than indexed in SQLite. The task-009 isolation fixture is run-scoped evidence only and is not expected in a fresh checkout.
 4. Prefer small, testable changes. Keep story data, scoring, timers, and device integrations independently testable.
 5. Test on a physical recent iOS device and Android device before calling camera, wake-lock, or audio work complete. Simulate denied permissions and interrupted sessions.
 6. Before handoff, run the repository’s available formatting, lint, typecheck, unit, and build commands. If a command is unavailable because the app has not been provisioned yet, say so rather than inventing a result.
+7. Use read/search and patch/edit tools for repository changes. Do not use shell mutation (`sed -i`, in-place Perl/AWK, redirection, `tee`, inline interpreters, or generated patches), compound command chains, or self-edits to agent policies as permission workarounds. Keep run-scoped assertions, fixtures, logs, specs, and PR drafts under ignored `tmp/`; keep durable planning and research documents tracked.
 
 ## Non-negotiable delivery workflow
 
 1. **Delegate application implementation.** The orchestrator may edit coordination artifacts (`AGENTS.md`, `planning/`, `.opencode/`, and `tmp/`) but must delegate application source, tests, and native changes to the `builder` agent in an isolated worktree.
 2. **Red-green delivery.** The builder writes a meaningful failing test first, captures the RED failure, then implements the smallest change that makes it GREEN. Coordination-only changes use appropriate document or schema validation instead of inventing application tests.
-3. **Adversarial review every batch.** Every implementation batch goes through the read-only `adversary` agent. Findings are categorized as blocking, major, minor, or nit. Blocking and major findings must be fixed and reviewed again before verification.
+3. **Adversarial review every batch.** Every implementation batch goes through the `adversary` agent. It may write and run disposable probes under ignored `tmp/` to exercise edge cases, but must not modify application or durable coordination files. Findings are categorized as blocking, major, minor, or nit. Blocking and major findings must be fixed and reviewed again before verification.
 4. **Verify before done.** A batch is not complete until applicable planning integrity, typecheck, lint, tests, build, and physical-device gates pass. Do not claim a command or device check ran when it did not.
 5. **Branch → worktree → PR → merge.** After the bootstrap commit, never commit directly to `main`. Each planning task gets a feature branch and worktree, then reaches `main` through a reviewed pull request. Commit, push, and PR creation require explicit user approval in the delivery command.
 6. **Keep the planning index synchronized.** Task Markdown remains canonical; update `planning/index.sqlite3` when task status, labels, sequencing, dependencies, or completion notes change.
@@ -67,7 +69,9 @@ The v0 target is a local-first iOS/Android app with:
 ## OpenCode delivery commands
 
 - `/build <task-id>` runs the delegated develop → adversarial-review → verify → PR preparation cycle.
-- `/review` runs a read-only adversarial review of the current or specified diff.
+- `/review` runs an adversarial review of the current or specified diff; the
+  reviewer may create disposable probes under ignored `tmp/` but does not modify
+  application or durable coordination files.
 - `/verify` runs the applicable verification gates and reports pass/fail/unavailable status.
 
 ## Definition of done for v0 features

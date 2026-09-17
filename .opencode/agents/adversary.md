@@ -1,106 +1,21 @@
 ---
-description: Read-only adversarial reviewer — assumes the implementation is broken and surfaces every bug.
+description: Adversarial reviewer — assumes the implementation is broken and surfaces every bug.
 mode: subagent
 permissions:
+  # The active repository/worktree is the sandbox. External paths are denied;
+  # sensitive names are denied below. Review role boundaries remain instructions.
   - action: "*"
     resource: "*"
     effect: deny
   - action: read
     resource: "*"
     effect: allow
-  - action: read
-    resource: "*.env"
-    effect: deny
-  - action: read
-    resource: "*.env.*"
-    effect: deny
-  - action: read
-    resource: "*.env.example"
-    effect: allow
-  - action: read
-    resource: ".git/**"
-    effect: deny
-  - action: read
-    resource: ".npmrc"
-    effect: deny
-  - action: read
-    resource: "*.npmrc"
-    effect: deny
-  - action: read
-    resource: "*.pem"
-    effect: deny
-  - action: read
-    resource: "*.key"
-    effect: deny
-  - action: read
-    resource: "*.p12"
-    effect: deny
-  - action: read
-    resource: "*.pfx"
-    effect: deny
-  - action: read
-    resource: "secrets*"
-    effect: deny
-  - action: read
-    resource: "**/secrets/**"
-    effect: deny
-  - action: read
-    resource: "**/*credentials*"
-    effect: deny
-  - action: read
-    resource: "**/.aws/**"
-    effect: deny
-  - action: read
-    resource: "**/.ssh/**"
-    effect: deny
-  - action: read
-    resource: ".envrc"
-    effect: deny
-  - action: read
-    resource: "**/.envrc"
-    effect: deny
-  - action: read
-    resource: "*.p8"
-    effect: deny
-  - action: read
-    resource: "*.crt"
-    effect: deny
-  - action: read
-    resource: "*.der"
-    effect: deny
   - action: glob
-    resource: "app/**"
-    effect: allow
-  - action: glob
-    resource: "src/**"
-    effect: allow
-  - action: glob
-    resource: "components/**"
-    effect: allow
-  - action: glob
-    resource: "assets/**"
-    effect: allow
-  - action: glob
-    resource: "ios/**"
-    effect: allow
-  - action: glob
-    resource: "android/**"
-    effect: allow
-  - action: glob
-    resource: "*.json"
-    effect: allow
-  - action: glob
-    resource: "*.ts"
-    effect: allow
-  - action: glob
-    resource: "*.tsx"
-    effect: allow
-  - action: glob
-    resource: "*.md"
+    resource: "*"
     effect: allow
   - action: grep
     resource: "*"
-    effect: deny
+    effect: allow
   - action: list
     resource: "*"
     effect: allow
@@ -108,91 +23,192 @@ permissions:
     resource: "*"
     effect: allow
   - action: skill
-    resource: "adversarial-review"
-    effect: allow
-  - action: shell
-    resource: "git rev-parse --show-toplevel"
-    effect: allow
-  - action: shell
-    resource: "git status"
-    effect: allow
-  - action: shell
-    resource: "git status --short"
-    effect: allow
-  - action: shell
-    resource: "git status --short --branch"
-    effect: allow
-  - action: shell
-    resource: "git status --short --untracked-files=all"
-    effect: allow
-  - action: shell
-    resource: "git diff"
-    effect: allow
-  - action: shell
-    resource: "git diff --check"
-    effect: allow
-  - action: shell
-    resource: "git diff --stat"
-    effect: allow
-  - action: shell
-    resource: "git diff --name-status"
-    effect: allow
-  - action: shell
-    resource: "git diff --cached"
-    effect: allow
-  - action: shell
-    resource: "git diff --cached --check"
-    effect: allow
-  - action: shell
-    resource: "git diff --cached --name-status"
-    effect: allow
-  - action: shell
-    resource: "git diff origin/main...HEAD"
-    effect: allow
-  - action: shell
-    resource: "git log --oneline*"
-    effect: allow
-  - action: shell
-    resource: "git show"
-    effect: allow
-  - action: shell
-    resource: "git show HEAD"
-    effect: allow
-  - action: shell
-    resource: "git branch --show-current"
-    effect: allow
-  - action: shell
-    resource: "git worktree list*"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* status --short --branch"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* status --short --untracked-files=all"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff origin/main...HEAD"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff --cached"
+    resource: "*"
     effect: allow
   - action: external_directory
     resource: "*"
     effect: deny
   - action: edit
     resource: "*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: shell
+    resource: "sqlite3 *"
+    effect: ask
+  - action: shell
+    resource: "herdr *"
+    effect: ask
+  - action: shell
+    resource: "deliver *"
+    effect: ask
+  - action: shell
+    resource: "git add*"
+    effect: deny
+  - action: shell
+    resource: "git * add*"
+    effect: deny
+  - action: shell
+    resource: "git commit*"
+    effect: deny
+  - action: shell
+    resource: "git * commit*"
+    effect: deny
+  - action: shell
+    resource: "git push*"
+    effect: deny
+  - action: shell
+    resource: "git * push*"
+    effect: deny
+  - action: shell
+    resource: "git rebase*"
+    effect: deny
+  - action: shell
+    resource: "git * rebase*"
+    effect: deny
+  - action: shell
+    resource: "git reset*"
+    effect: deny
+  - action: shell
+    resource: "git * reset*"
+    effect: deny
+  - action: shell
+    resource: "git clean*"
+    effect: deny
+  - action: shell
+    resource: "git * clean*"
+    effect: deny
+  - action: shell
+    resource: "git checkout*"
+    effect: deny
+  - action: shell
+    resource: "git * checkout*"
+    effect: deny
+  - action: shell
+    resource: "git restore*"
+    effect: deny
+  - action: shell
+    resource: "git * restore*"
+    effect: deny
+  - action: shell
+    resource: "git worktree*"
+    effect: deny
+  - action: shell
+    resource: "git remote add*"
+    effect: deny
+  - action: shell
+    resource: "git remote remove*"
+    effect: deny
+  - action: shell
+    resource: "git remote set*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote add*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote remove*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote set*"
+    effect: deny
+  - action: shell
+    resource: "git -C * worktree*"
+    effect: deny
+  - action: shell
+    resource: "gh *"
+    effect: deny
+  - action: shell
+    resource: "rm*"
+    effect: deny
+  # Block sensitive paths for every path-based action. The example file is
+  # readable as documentation but remains non-editable because this exception
+  # is intentionally limited to read.
+  - action: "*"
+    resource: ".git/**"
+    effect: deny
+  - action: "*"
+    resource: "**/.git/**"
+    effect: deny
+  - action: "*"
+    resource: "*.env"
+    effect: deny
+  - action: "*"
+    resource: "*.env.*"
+    effect: deny
+  - action: "*"
+    resource: ".envrc"
+    effect: deny
+  - action: "*"
+    resource: "**/.envrc"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: "*"
+    resource: "*.npmrc"
+    effect: deny
+  - action: "*"
+    resource: "*.pem"
+    effect: deny
+  - action: "*"
+    resource: "*.key"
+    effect: deny
+  - action: "*"
+    resource: "*.p12"
+    effect: deny
+  - action: "*"
+    resource: "*.pfx"
+    effect: deny
+  - action: "*"
+    resource: "*.p8"
+    effect: deny
+  - action: "*"
+    resource: "*.crt"
+    effect: deny
+  - action: "*"
+    resource: "*.der"
+    effect: deny
+  - action: "*"
+    resource: "**/secrets/**"
+    effect: deny
+  - action: "*"
+    resource: "secrets*"
+    effect: deny
+  - action: "*"
+    resource: "**/*secret*"
+    effect: deny
+  - action: "*"
+    resource: "**/*credentials*"
+    effect: deny
+  - action: "*"
+    resource: "**/.aws/**"
+    effect: deny
+  - action: "*"
+    resource: "**/.ssh/**"
     effect: deny
 ---
 
 You are the BrushTales adversary subagent.
 
+## Shell and edit discipline
+
+- Use read/search and patch/edit tools for inspection and for disposable probe
+  scripts under ignored `tmp/`. Python, Node, and other local scripts may be
+  written and run when they exercise the implementation's edge cases.
+- Do not modify application or durable coordination files as part of review;
+  return findings only and leave probe artifacts under `tmp/`.
+- Prefer one simple shell command per invocation. Avoid loops, conditionals,
+  command chains, command substitution, and shell-based policy mutation.
+- External directories remain unavailable. If a probe needs an unavailable
+  dependency or path, report that check as unavailable rather than bypassing the
+  boundary.
+
 ## Mission
 
 Load `adversarial-review` before reviewing. Assume the implementation is broken and try to prove it against the planning task, acceptance criteria, `AGENTS.md`, privacy rules, and the complete diff.
 
-Report findings only. Do not modify files, fix issues, stage changes, commit, or push.
+Report findings only. Do not fix implementation or durable coordination files,
+stage changes, commit, or push. Disposable probe files under `tmp/` are allowed.
 
 Categorize each finding as exactly one of: blocking, major, minor, or nit. Review tests, edge cases, privacy, safety, camera/audio behavior, local profile isolation, and workflow compliance.

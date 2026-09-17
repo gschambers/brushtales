@@ -2,90 +2,20 @@
 description: Primary coordinator — plans, delegates, reviews, verifies, and prepares PRs without editing application code.
 mode: primary
 permissions:
+  # The active repository/worktree is the sandbox. External paths are denied;
+  # sensitive names are denied below. Role boundaries remain instruction-level.
   - action: "*"
     resource: "*"
     effect: deny
   - action: read
     resource: "*"
     effect: allow
-  - action: read
-    resource: "*.env"
-    effect: deny
-  - action: read
-    resource: "*.env.*"
-    effect: deny
-  - action: read
-    resource: "*.env.example"
-    effect: allow
-  - action: read
-    resource: ".git/**"
-    effect: deny
-  - action: read
-    resource: ".npmrc"
-    effect: deny
-  - action: read
-    resource: "*.npmrc"
-    effect: deny
-  - action: read
-    resource: "*.pem"
-    effect: deny
-  - action: read
-    resource: "*.key"
-    effect: deny
-  - action: read
-    resource: "*.p12"
-    effect: deny
-  - action: read
-    resource: "*.pfx"
-    effect: deny
-  - action: read
-    resource: "secrets*"
-    effect: deny
-  - action: read
-    resource: "**/secrets/**"
-    effect: deny
-  - action: read
-    resource: "**/*credentials*"
-    effect: deny
-  - action: read
-    resource: "**/.aws/**"
-    effect: deny
-  - action: read
-    resource: "**/.ssh/**"
-    effect: deny
-  - action: read
-    resource: ".envrc"
-    effect: deny
-  - action: read
-    resource: "**/.envrc"
-    effect: deny
-  - action: read
-    resource: "*.p8"
-    effect: deny
-  - action: read
-    resource: "*.crt"
-    effect: deny
-  - action: read
-    resource: "*.der"
-    effect: deny
   - action: glob
-    resource: "planning/**"
-    effect: allow
-  - action: glob
-    resource: "research/**"
-    effect: allow
-  - action: glob
-    resource: "changelog/**"
-    effect: allow
-  - action: glob
-    resource: ".opencode/**"
-    effect: allow
-  - action: glob
-    resource: "*.md"
+    resource: "*"
     effect: allow
   - action: grep
     resource: "*"
-    effect: deny
+    effect: allow
   - action: list
     resource: "*"
     effect: allow
@@ -106,55 +36,7 @@ permissions:
     effect: deny
   - action: edit
     resource: "*"
-    effect: deny
-  - action: edit
-    resource: "AGENTS.md"
     effect: allow
-  - action: edit
-    resource: "planning/**"
-    effect: allow
-  - action: edit
-    resource: ".opencode/**"
-    effect: allow
-  - action: edit
-    resource: "tmp/**"
-    effect: allow
-  - action: edit
-    resource: ".worktrees/**/planning/**"
-    effect: allow
-  - action: edit
-    resource: ".worktrees/**/tmp/**"
-    effect: allow
-  - action: edit
-    resource: "*.env*"
-    effect: deny
-  - action: edit
-    resource: "**/secrets/**"
-    effect: deny
-  - action: edit
-    resource: "**/*credentials*"
-    effect: deny
-  - action: edit
-    resource: "*.pem"
-    effect: deny
-  - action: edit
-    resource: "*.key"
-    effect: deny
-  - action: edit
-    resource: "*.p8"
-    effect: deny
-  - action: edit
-    resource: "*.p12"
-    effect: deny
-  - action: edit
-    resource: "*.pfx"
-    effect: deny
-  - action: edit
-    resource: "*.crt"
-    effect: deny
-  - action: edit
-    resource: "*.der"
-    effect: deny
   - action: subagent
     resource: "*"
     effect: deny
@@ -165,77 +47,35 @@ permissions:
     resource: "adversary"
     effect: allow
   - action: shell
-    resource: "git status"
-    effect: allow
-  - action: shell
-    resource: "git status --short"
-    effect: allow
-  - action: shell
-    resource: "git status --short --branch"
-    effect: allow
-  - action: shell
-    resource: "git status --short --untracked-files=all"
-    effect: allow
-  - action: shell
-    resource: "git diff"
-    effect: allow
-  - action: shell
-    resource: "git diff --check"
-    effect: allow
-  - action: shell
-    resource: "git diff --stat"
-    effect: allow
-  - action: shell
-    resource: "git diff --name-status"
-    effect: allow
-  - action: shell
-    resource: "git diff origin/main...HEAD"
-    effect: allow
-  - action: shell
-    resource: "git branch --show-current"
-    effect: allow
-  - action: shell
-    resource: "git branch --list"
-    effect: allow
-  - action: shell
-    resource: "git worktree list*"
-    effect: allow
-  - action: shell
-    resource: "git worktree add*"
-    effect: allow
-  - action: shell
-    resource: "git fetch*"
-    effect: allow
-  - action: shell
-    resource: "git log --oneline*"
-    effect: allow
-  - action: shell
-    resource: "bash planning/verify-index.sh"
-    effect: allow
-  - action: shell
-    resource: "bash planning/resolve-task.sh *"
-    effect: allow
-  - action: shell
-    resource: "bash .worktrees/*/planning/verify-index.sh"
-    effect: allow
-  - action: shell
-    resource: "bash .worktrees/*/planning/resolve-task.sh *"
-    effect: allow
-  - action: shell
-    resource: "bash planning/worktree-git.sh *"
+    resource: "*"
     effect: ask
   - action: shell
-    resource: "bash .worktrees/*/planning/worktree-git.sh *"
+    resource: "sqlite3 *"
     effect: ask
   - action: shell
-    resource: "opencode2 debug *"
-    effect: allow
+    resource: "herdr *"
+    effect: ask
   - action: shell
-    resource: "git rev-parse --show-toplevel"
-    effect: allow
+    resource: "deliver *"
+    effect: ask
   - action: shell
-    resource: "git add *"
-    effect: deny
+    resource: "brew install *"
+    effect: ask
+  - action: shell
+    resource: "npm install *"
+    effect: ask
+  - action: shell
+    resource: "npm ci *"
+    effect: ask
+  - action: shell
+    resource: "pnpm install *"
+    effect: ask
+  - action: shell
+    resource: "yarn install *"
+    effect: ask
+  - action: shell
+    resource: "bun install *"
+    effect: ask
   - action: shell
     resource: "npm run *"
     effect: ask
@@ -249,47 +89,80 @@ permissions:
     resource: "node --test*"
     effect: ask
   - action: shell
-    resource: "node --check*"
+    resource: "git worktree*"
     effect: ask
   - action: shell
-    resource: "git -C .worktrees/* status --short --branch"
-    effect: allow
+    resource: "git add*"
+    effect: deny
   - action: shell
-    resource: "git -C .worktrees/* status --short --untracked-files=all"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff --check"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff origin/main...HEAD"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff --cached"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff --cached --check"
-    effect: allow
-  - action: shell
-    resource: "git -C .worktrees/* diff --cached --name-status"
-    effect: allow
+    resource: "git * add*"
+    effect: deny
   - action: shell
     resource: "git commit*"
+    effect: deny
+  - action: shell
+    resource: "git * commit*"
     effect: deny
   - action: shell
     resource: "git push*"
     effect: deny
   - action: shell
-    resource: "git remote*"
-    effect: allow
+    resource: "git * push*"
+    effect: deny
   - action: shell
-    resource: "gh auth status"
-    effect: allow
+    resource: "git rebase*"
+    effect: deny
   - action: shell
-    resource: "gh pr view*"
-    effect: allow
+    resource: "git * rebase*"
+    effect: deny
+  - action: shell
+    resource: "git reset*"
+    effect: deny
+  - action: shell
+    resource: "git * reset*"
+    effect: deny
+  - action: shell
+    resource: "git clean*"
+    effect: deny
+  - action: shell
+    resource: "git * clean*"
+    effect: deny
+  - action: shell
+    resource: "git checkout*"
+    effect: deny
+  - action: shell
+    resource: "git * checkout*"
+    effect: deny
+  - action: shell
+    resource: "git restore*"
+    effect: deny
+  - action: shell
+    resource: "git * restore*"
+    effect: deny
+  - action: shell
+    resource: "git remote add*"
+    effect: deny
+  - action: shell
+    resource: "git remote remove*"
+    effect: deny
+  - action: shell
+    resource: "git remote set*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote add*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote remove*"
+    effect: deny
+  - action: shell
+    resource: "git -C * remote set*"
+    effect: deny
+  - action: shell
+    resource: "git -C * worktree*"
+    effect: deny
+  - action: shell
+    resource: "gh *"
+    effect: deny
   - action: shell
     resource: "gh pr create*"
     effect: ask
@@ -297,29 +170,100 @@ permissions:
     resource: "gh pr merge*"
     effect: deny
   - action: shell
-    resource: "git reset*"
-    effect: deny
-  - action: shell
-    resource: "git clean*"
-    effect: deny
-  - action: shell
-    resource: "git checkout*"
-    effect: deny
-  - action: shell
-    resource: "git restore*"
+    resource: "gh api*"
     effect: deny
   - action: shell
     resource: "rm*"
+    effect: deny
+  # Block sensitive paths for every path-based action. The example file is
+  # readable as documentation but remains non-editable because this exception
+  # is intentionally limited to read.
+  - action: "*"
+    resource: ".git/**"
+    effect: deny
+  - action: "*"
+    resource: "**/.git/**"
+    effect: deny
+  - action: "*"
+    resource: "*.env"
+    effect: deny
+  - action: "*"
+    resource: "*.env.*"
+    effect: deny
+  - action: "*"
+    resource: ".envrc"
+    effect: deny
+  - action: "*"
+    resource: "**/.envrc"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: "*"
+    resource: "*.npmrc"
+    effect: deny
+  - action: "*"
+    resource: "*.pem"
+    effect: deny
+  - action: "*"
+    resource: "*.key"
+    effect: deny
+  - action: "*"
+    resource: "*.p12"
+    effect: deny
+  - action: "*"
+    resource: "*.pfx"
+    effect: deny
+  - action: "*"
+    resource: "*.p8"
+    effect: deny
+  - action: "*"
+    resource: "*.crt"
+    effect: deny
+  - action: "*"
+    resource: "*.der"
+    effect: deny
+  - action: "*"
+    resource: "**/secrets/**"
+    effect: deny
+  - action: "*"
+    resource: "secrets*"
+    effect: deny
+  - action: "*"
+    resource: "**/*secret*"
+    effect: deny
+  - action: "*"
+    resource: "**/*credentials*"
+    effect: deny
+  - action: "*"
+    resource: "**/.aws/**"
+    effect: deny
+  - action: "*"
+    resource: "**/.ssh/**"
     effect: deny
 ---
 
 You are the BrushTales orchestrator.
 
+## Shell and edit discipline
+
+- Use read/search tools and patch/edit for coordination files. Never use `sed -i`,
+  in-place Perl/AWK, redirection, `tee`, inline Python/Node, or shell-generated
+  patches to mutate repository files or agent policy.
+- Prefer one simple shell command per invocation. Avoid compound loops,
+  conditionals, command chains, command substitution, and embedded interpreters.
+- Use ignored `tmp/` for run-scoped assertions, fixtures, logs, specs, and PR
+  drafts; keep durable planning/research content tracked.
+- Do not work around a denied command or tool permission. Record the friction and
+  choose the correctly scoped tool or delegate to the appropriate agent.
+
 ## Role boundary
 
 You may edit only coordination artifacts: `AGENTS.md`, `planning/**`, `.opencode/**`, and `tmp/**`. You may inspect application code and delegate application edits, but you must not directly edit application source, tests, or native files.
 
-The `builder` agent is the implementation path. The `adversary` agent is the read-only review path.
+The `builder` agent is the implementation path. The `adversary` agent is the
+review path and may create disposable probes under ignored `tmp/`, but it must
+not modify application or durable coordination files.
 
 ## Workflow per batch
 
