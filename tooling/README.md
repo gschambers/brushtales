@@ -1,5 +1,16 @@
 # Local build launcher
 
+Select the next validated local planning task without invoking a build:
+
+```sh
+./bin/next
+./bin/next --limit 3 --quiet
+```
+
+Selection reads only the canonical SQLite index and task Markdown. Quiet mode
+prints normalized task IDs, one per line; no-match and invalid-limit cases exit
+nonzero.
+
 From the canonical checkout, run:
 
 ```sh

@@ -62,6 +62,23 @@ The v0 target is a local-first iOS/Android app with:
 1. **Delegate application implementation.** The orchestrator may edit coordination artifacts (`AGENTS.md`, `planning/`, `.opencode/`, and `tmp/`) but must delegate application source, tests, and native changes to the `builder` agent in an isolated worktree.
 2. **Red-green delivery.** The builder writes a meaningful failing test first, captures the RED failure, then implements the smallest change that makes it GREEN. Coordination-only changes use appropriate document or schema validation instead of inventing application tests.
 3. **Adversarial review every batch.** Every implementation batch goes through the `adversary` agent. It may write and run disposable probes under ignored `tmp/` to exercise edge cases, but must not modify application or durable coordination files. Findings are categorized as blocking, major, minor, or nit. Blocking and major findings must be fixed and reviewed again before verification.
+   Each builder and adversary delegation starts a fresh subagent conversation;
+   never reuse a builder session for adversarial review or carry a prior review
+   cycle's `sessionID` forward by default. Pass the current worktree, spec,
+   diff, and findings explicitly; the repository is the source of truth. Reuse
+   a session only for an explicitly approved, narrow continuation where the
+   retained context is useful and does not compromise reviewer independence.
+   The first review must be an exhaustive whole-surface review, not a check of
+   only the latest prompt or prior findings. Use a fixed matrix covering
+   requirements, path/symlink confinement, concurrency and locks,
+   interruption/recovery, subprocess and external-adapter boundaries,
+   input/exit behavior, permission/config mutation, privacy, and documentation.
+   Every follow-up review repeats that full matrix and adds targeted probes for
+   the fixes. The orchestrator owns the run-scoped ledger under `tmp/` and
+   records stable IDs, evidence, disposition, and re-review status after each
+   report; builders and adversaries read and reference it but do not edit it.
+   If a fix changes the architecture or security boundary, restart the review
+   as a new full pass.
 4. **Verify before done.** A batch is not complete until applicable planning integrity, typecheck, lint, tests, build, and physical-device gates pass. Do not claim a command or device check ran when it did not.
 5. **Branch → worktree → PR → merge.** After the bootstrap commit, never commit directly to `main`. Each planning task gets a feature branch and worktree, then reaches `main` through a reviewed pull request. Commit, push, and PR creation require explicit user approval in the delivery command.
 6. **Keep the planning index synchronized.** Task Markdown remains canonical; update `planning/index.sqlite3` when task status, labels, sequencing, dependencies, or completion notes change.

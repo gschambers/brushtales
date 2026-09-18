@@ -8,15 +8,23 @@
 
 ## Goal
 
-Provide one boring local developer command—`build.sh <task-id>`—that resolves
-canonical planning data, reuses or provisions the exact registered task
-worktree in a Herdr workspace, configures context-aware OpenCode permission
-handling, and launches the builder without repetitive manual orchestration.
+Provide boring local developer commands—`next` and `build.sh <task-id>`—that
+resolve canonical planning data, select viable work deterministically, reuse or
+provision the exact registered task worktree in a Herdr workspace, configure
+context-aware OpenCode permission handling, and launch the builder without
+repetitive manual orchestration.
 
 ## Acceptance criteria
 
 - Task metadata is checked against both SQLite and Markdown in the canonical
-  checkout.
+   checkout.
+- An executable repo-local `bin/next` selects only `todo` tasks whose
+  dependencies are all `done`, orders them deterministically by priority and
+  planning sequence, supports `--limit N` (default `1`) and `-q/--quiet`, and
+  exits nonzero without stdout when no viable task matches.
+- `next -q` emits only validated three-digit task IDs, one per line, for simple
+  shell composition. Selection is local SQLite/Markdown logic and never asks
+  an LLM to invent task IDs.
 - Only the exact registered clean task worktree may be launched.
 - A single public `build.sh <task-id>` entry point accepts the task ID and
   internally performs the local-build handoff; callers do not need to invoke
