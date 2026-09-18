@@ -4,6 +4,7 @@ node_modules/
 dist/
 web-build/
 coverage/
+__pycache__/
 .worktrees/
 tmp/
 .tmp/

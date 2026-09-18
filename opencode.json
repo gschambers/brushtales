@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "orchestrator",
+  "plugin": ["opencode-auto-permissions"],
+  "instructions": ["AGENTS.md"],
+  "agents": {
+    "build": {
+      "disabled": true,
+      "description": "Disabled — use the orchestrator's builder subagent instead"
+    }
+  }
+}
