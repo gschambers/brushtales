@@ -2,11 +2,59 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 from .local_build import (HerdrAdapter, LaunchResult, _record, canonical_root,
                           ensure_task_worktree, resolve_task, run_build)
+
+
+MAX_BATCH_SIZE = 16
+
+
+def collect_task_ids(positional, stdin=None):
+    """Collect, normalize, and bound task IDs without blocking on a TTY."""
+    tokens = list(positional)
+    stream = sys.stdin if stdin is None else stdin
+    if not stream.isatty():
+        try:
+            tokens.extend(stream.read().split())
+        except OSError as error:
+            raise ValueError("unable to read task IDs from stdin") from error
+
+    normalized = []
+    seen = set()
+    for token in tokens:
+        if not re.fullmatch(r"[0-9]{1,3}", token):
+            raise ValueError(f"invalid task ID: {token}")
+        task_id = f"{int(token):03d}"
+        if task_id not in seen:
+            seen.add(task_id)
+            normalized.append(task_id)
+    if len(normalized) > MAX_BATCH_SIZE:
+        raise ValueError(f"at most {MAX_BATCH_SIZE} task IDs may be built at once")
+    return tuple(normalized)
+
+
+def run_batch(entrypoint, task_ids):
+    """Prevalidate every task, then start each independent build session."""
+    for task_id in task_ids:
+        entrypoint.validate(task_id)
+    summaries = []
+    for task_id in task_ids:
+        try:
+            summaries.append(entrypoint.run(task_id))
+        except KeyboardInterrupt:
+            summaries.append(f"task {task_id} | status interrupted | launcher raised (KeyboardInterrupt)")
+        except Exception as error:
+            summaries.append(f"task {task_id} | status failed | launcher raised ({type(error).__name__})")
+    return summaries
+
+
+def _started(summary):
+    return re.search(r"\| status started(?: \||$)", summary) is not None
 
 
 class PermissionPolicy:
@@ -109,9 +157,13 @@ class BuildEntrypoint:
         self.opencode = opencode
         self.direnv = direnv
 
-    def run(self, task_id: str) -> str:
+    def validate(self, task_id: str):
         task = resolve_task(self.root, task_id)
         worktree = ensure_task_worktree(self.root, task)
+        return task, worktree
+
+    def run(self, task_id: str) -> str:
+        task, worktree = self.validate(task_id)
         if self.direnv is not None:
             try:
                 self.direnv.ensure(self.root, worktree)
@@ -152,17 +204,39 @@ class BuildEntrypoint:
                          config_path=self.root / "opencode.json")
 
 
-def main(argv=None) -> int:
+def main(argv=None, *, root=None, stdin=None, entrypoint_factory=None) -> int:
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("task_id")
+    parser.add_argument("task_ids", nargs="*")
+    parser.add_argument("--root", type=Path)
     args = parser.parse_args(argv)
-    root = canonical_root(Path.cwd())
-    permissions = OpenCodePreflight(root / "opencode.json")
-    herdr = HerdrAdapter.discover(root)
-    print(BuildEntrypoint(root, herdr=herdr, permissions=permissions,
-                          direnv=DirenvPreflight()).run(args.task_id))
-    return 0
+    try:
+        task_ids = collect_task_ids(args.task_ids, stdin)
+    except ValueError as error:
+        print(f"build input failed: {error}", file=sys.stderr)
+        return 1
+    if not task_ids:
+        print("build input failed: provide at least one task ID", file=sys.stderr)
+        return 1
+
+    invocation_root = args.root or root or Path(__file__).resolve().parents[1]
+    try:
+        canonical = canonical_root(invocation_root.resolve())
+        if entrypoint_factory is None:
+            permissions = OpenCodePreflight(canonical / "opencode.json")
+            herdr = HerdrAdapter.discover(canonical)
+            entrypoint = BuildEntrypoint(canonical, herdr=herdr,
+                                         permissions=permissions,
+                                         direnv=DirenvPreflight())
+        else:
+            entrypoint = entrypoint_factory(canonical)
+        summaries = run_batch(entrypoint, task_ids)
+    except (ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+        print(f"local build failed: {error}", file=sys.stderr)
+        return 1
+    for summary in summaries:
+        print(summary)
+    return 0 if all(_started(summary) for summary in summaries) else 1
 
 
 if __name__ == "__main__":

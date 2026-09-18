@@ -1,4 +1,5 @@
 import json
+import io
 import sqlite3
 import subprocess
 import tempfile
@@ -8,10 +9,139 @@ from pathlib import Path
 from tooling.local_build import (HerdrProtocolError, LaunchError, LaunchResult, HerdrAdapter,
                                  SubprocessOpenCode, canonical_root,
                                  ensure_task_worktree, resolve_task, run_build)
-from tooling.build import BuildEntrypoint, DirenvPreflight, OpenCodePreflight, PermissionPolicy
+from tooling.build import (BuildEntrypoint, DirenvPreflight, OpenCodePreflight,
+                           PermissionPolicy, MAX_BATCH_SIZE, collect_task_ids,
+                           main, run_batch)
 
 
 class LocalBuildTests(unittest.TestCase):
+    def test_collects_pipeline_ids_and_normalizes_deduplicates(self):
+        ids = collect_task_ids(["17", "003"], io.StringIO("017 3 12"))
+        self.assertEqual(ids, ("017", "003", "012"))
+
+    def test_rejects_malformed_and_over_limit_input_before_launch(self):
+        with self.assertRaises(ValueError):
+            collect_task_ids(["17", "oops"], io.StringIO(""))
+        with self.assertRaises(ValueError):
+            collect_task_ids([str(index) for index in range(1, MAX_BATCH_SIZE + 2)], io.StringIO(""))
+
+    def test_no_argument_interactive_stdin_is_not_read(self):
+        class InteractiveInput(io.StringIO):
+            def isatty(self):
+                return True
+
+            def read(self, *args, **kwargs):
+                raise AssertionError("interactive stdin must not be read")
+
+        self.assertEqual(collect_task_ids([], InteractiveInput("17")), ())
+        self.assertEqual(main([], stdin=InteractiveInput("17")), 1)
+
+    def test_batch_prevalidates_all_tasks_before_any_run(self):
+        calls = []
+
+        class FakeEntrypoint:
+            def validate(self, task_id):
+                calls.append(("validate", task_id))
+                if task_id == "018":
+                    raise ValueError("bad task")
+
+            def run(self, task_id):
+                calls.append(("run", task_id))
+                return f"task {task_id} | status started"
+
+        with self.assertRaises(ValueError):
+            run_batch(FakeEntrypoint(), ("017", "018"))
+        self.assertEqual(calls, [("validate", "017"), ("validate", "018")])
+
+    def test_batch_runs_one_independent_session_and_propagates_failure(self):
+        calls = []
+
+        class FakeEntrypoint:
+            def validate(self, task_id):
+                calls.append(("validate", task_id))
+
+            def run(self, task_id):
+                calls.append(("run", task_id))
+                status = "failed" if task_id == "002" else "started"
+                return f"task {task_id} | status {status}"
+
+        summaries = run_batch(FakeEntrypoint(), ("001", "002", "003"))
+        self.assertEqual(len(summaries), 3)
+        self.assertEqual([call[0] for call in calls], ["validate"] * 3 + ["run"] * 3)
+        self.assertIn("status failed", summaries[1])
+
+    def test_batch_continues_after_launcher_exception_without_started_claim(self):
+        calls = []
+
+        class FakeEntrypoint:
+            def validate(self, task_id):
+                calls.append(("validate", task_id))
+
+            def run(self, task_id):
+                calls.append(("run", task_id))
+                if task_id == "002":
+                    raise RuntimeError("launcher unavailable")
+                return f"task {task_id} | status started"
+
+        summaries = run_batch(FakeEntrypoint(), ("001", "002", "003"))
+        self.assertEqual([call[0] for call in calls], ["validate"] * 3 + ["run"] * 3)
+        self.assertEqual(len(summaries), 3)
+        self.assertIn("task 001 | status started", summaries[0])
+        self.assertIn("task 002 | status failed", summaries[1])
+        self.assertIn("launcher raised", summaries[1])
+        self.assertNotIn("status started", summaries[1])
+        self.assertIn("task 003 | status started", summaries[2])
+
+    def test_single_task_entrypoint_path_remains_unchanged(self):
+        calls = []
+
+        class FakeEntrypoint:
+            def validate(self, task_id):
+                calls.append(("validate", task_id))
+
+            def run(self, task_id):
+                calls.append(("run", task_id))
+                return f"task {task_id} | status started"
+
+        self.assertEqual(run_batch(FakeEntrypoint(), ("017",)), ["task 017 | status started"])
+        self.assertEqual(calls, [("validate", "017"), ("run", "017")])
+
+    def test_main_combines_positional_and_pipeline_ids_with_fake_launcher(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repo(Path(directory))
+            calls = []
+
+            class FakeEntrypoint:
+                def validate(self, task_id):
+                    calls.append(("validate", task_id))
+
+                def run(self, task_id):
+                    calls.append(("run", task_id))
+                    return f"task {task_id} | status started"
+
+            entrypoint = FakeEntrypoint()
+            status = main(["17"], root=root, stdin=io.StringIO("017"),
+                          entrypoint_factory=lambda _: entrypoint)
+            self.assertEqual(status, 0)
+            self.assertEqual(calls, [("validate", "017"), ("run", "017")])
+
+    def test_main_returns_nonzero_when_a_task_launch_reports_failure(self):
+        calls = []
+
+        class FakeEntrypoint:
+            def validate(self, task_id):
+                calls.append(("validate", task_id))
+
+            def run(self, task_id):
+                calls.append(("run", task_id))
+                return f"task {task_id} | status {'failed' if task_id == '002' else 'started'}"
+
+        status = main(["1", "2"], root=Path.cwd(),
+                      entrypoint_factory=lambda _: FakeEntrypoint())
+        self.assertEqual(status, 1)
+        self.assertEqual(calls, [("validate", "001"), ("validate", "002"),
+                                 ("run", "001"), ("run", "002")])
+
     def test_public_entrypoint_provisions_and_delegates(self):
         with tempfile.TemporaryDirectory() as directory:
             root = self._repo(Path(directory))
@@ -74,6 +204,14 @@ class LocalBuildTests(unittest.TestCase):
         result = subprocess.run(["bash", str(Path(__file__).parents[1] / "build.sh"), "--help"],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0)
+        self.assertIn("usage:", result.stdout.lower())
+
+    def test_repo_local_build_wrapper_imports_from_arbitrary_cwd(self):
+        root = Path(__file__).parents[1].resolve()
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([str(root / "bin/build"), "--help"], cwd=directory,
+                                    capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("usage:", result.stdout.lower())
 
     def test_permission_policy_allows_routine_and_reviews_risky_actions(self):

@@ -16,9 +16,19 @@ From the canonical checkout, run:
 ```sh
 ./build.sh 017
 
+# Build several validated tasks; IDs are normalized and deduplicated.
+./build.sh 17 018 017
+
+# Or pipe the quiet selector into the repo-local wrapper.
+./bin/next -q --limit 3 | ./bin/build
+
 # Equivalent explicit shell invocation:
 bash build.sh 017
 ```
+
+Task IDs may also be separated by whitespace on stdin. The complete input
+batch is validated before any session starts, and the command exits nonzero if
+an input, preflight, or launch fails.
 
 After installing direnv, enable its shell hook and allow the checked-in `.envrc`;
 then `build 017` is available from either the canonical checkout or linked task

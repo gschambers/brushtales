@@ -25,6 +25,11 @@ repetitive manual orchestration.
 - `next -q` emits only validated three-digit task IDs, one per line, for simple
   shell composition. Selection is local SQLite/Markdown logic and never asks
   an LLM to invent task IDs.
+- The repo-local `build` wrapper accepts one or more task IDs from positional
+  arguments or whitespace-delimited stdin, normalizes and deduplicates them,
+  validates the complete batch before launching any task, and launches one
+  independent build session per task. It returns nonzero if input validation or
+  any launch fails, so `next -q --limit 3 | build` is reliable.
 - Only the exact registered clean task worktree may be launched.
 - A single public `build.sh <task-id>` entry point accepts the task ID and
   internally performs the local-build handoff; callers do not need to invoke
