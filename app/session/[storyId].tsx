@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router'
-import { useEffect, useMemo, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Camera, useCameraDevice } from 'react-native-vision-camera'
 
 import type { AgeBand } from '../../src/domain/profile/types'
@@ -15,6 +15,7 @@ import { requestCameraPermission } from '../../src/platform/permissions'
 import type { SensingAdapter } from '../../src/sensing/sensingAdapter'
 import { NativeSensingAdapter } from '../../src/sensing/nativeSensingAdapter'
 import { openAppDatabase } from '../../src/storage/database'
+import { createProfileRepository } from '../../src/storage/profileRepository'
 import { createSessionRepository } from '../../src/storage/sessionRepository'
 
 const storyGraph = storyGraphJson as unknown as StoryGraph
@@ -32,7 +33,19 @@ const durationMs = 120_000
 
 export default function SessionRoute() {
   const { storyId, profileId } = useLocalSearchParams<{ storyId: string; profileId?: string }>()
-  return <SessionScreen storyId={storyId ?? 'sky-reef'} profileId={profileId} />
+  const [ageBand, setAgeBand] = useState<AgeBand>('6-7')
+
+  useEffect(() => {
+    if (!profileId) return
+    void openAppDatabase()
+      .then((database) => createProfileRepository(database).get(profileId))
+      .then((profile) => {
+        if (profile) setAgeBand(profile.ageBand)
+      })
+      .catch(() => undefined)
+  }, [profileId])
+
+  return <SessionScreen ageBand={ageBand} storyId={storyId ?? 'sky-reef'} profileId={profileId} />
 }
 
 export function SessionScreen({
@@ -54,56 +67,17 @@ export function SessionScreen({
   const [audioOnly, setAudioOnly] = useState(false)
   const [wakeLockRevoked, setWakeLockRevoked] = useState(false)
   const [snapshot, setSnapshot] = useState(engine.snapshot())
+  const startedRef = useRef(false)
+  const completionStartedRef = useRef(false)
   const [storyState, setStoryState] = useState<StoryState>({
     storyId,
     nodeId: storyGraph.startNodeId,
     choices: {},
   })
   const cameraDevice = useCameraDevice('front')
-
-  useEffect(() => {
-    const unsubscribe = keepAwake.onStateChange?.((state) => {
-      if (state === 'revoked') setWakeLockRevoked(true)
-    })
-    return unsubscribe
-  }, [keepAwake])
-
-  useEffect(() => {
-    if (!started) return
-    const interval = setInterval(() => setSnapshot(engine.snapshot()), 250)
-    return () => clearInterval(interval)
-  }, [engine, started])
-
   const node = storyGraph.nodes[storyState.nodeId]
 
-  async function startAdventure() {
-    const permission = await requestCameraPermission()
-    setAudioOnly(permission !== 'granted')
-    const input: SessionInput = { profileId: profileId ?? 'local', storyId, durationMs }
-    await audio.load(node.type === 'choice' ? node.promptAssetId : node.assetId)
-    await engine.start(input)
-    setStarted(true)
-    setSnapshot(engine.snapshot())
-  }
-
-  async function advance() {
-    if (!started || node.type === 'ending') return
-    const nextState = node.type === 'narration'
-      ? advanceStory(storyGraph, storyState, { type: 'continue' })
-      : advanceStory(storyGraph, storyState, { type: 'choose', optionId: storyState.choices[storyState.nodeId] ?? node.options[0].id, sessionBand: 'steady' })
-    setStoryState(nextState)
-    const nextNode = storyGraph.nodes[nextState.nodeId]
-    await audio.load(nextNode.type === 'choice' ? nextNode.promptAssetId : nextNode.assetId)
-  }
-
-  async function choose(optionId: string) {
-    const nextState = advanceStory(storyGraph, storyState, { type: 'choose', optionId, sessionBand: 'steady' })
-    setStoryState(nextState)
-    const nextNode = storyGraph.nodes[nextState.nodeId]
-    await audio.load(nextNode.type === 'choice' ? nextNode.promptAssetId : nextNode.assetId)
-  }
-
-  async function finish() {
+  const finish = useCallback(async () => {
     const result = await engine.stop()
     if (profileId) {
       const database = await openAppDatabase()
@@ -117,7 +91,93 @@ export function SessionScreen({
         interrupted: result.interrupted,
       })
     }
-    router.replace(`/complete/${Date.now().toString(36)}`)
+    router.replace(`/complete/${Date.now().toString(36)}?completed=${result.completedDurationMs >= durationMs}`)
+  }, [engine, profileId, storyId])
+
+  useEffect(() => {
+    const unsubscribe = keepAwake.onStateChange?.((state) => {
+      if (state === 'revoked') setWakeLockRevoked(true)
+    })
+    return () => unsubscribe?.()
+  }, [keepAwake])
+
+  useEffect(() => {
+    if (!started) return
+    const interval = setInterval(() => {
+      const nextSnapshot = engine.snapshot()
+      setSnapshot(nextSnapshot)
+      if (nextSnapshot.sensingStatus === 'unsupported' || nextSnapshot.sensingStatus === 'permissionDenied' || nextSnapshot.sensingStatus === 'processingUnavailable') {
+        setAudioOnly(true)
+      }
+      if (nextSnapshot.status === 'complete' && !completionStartedRef.current) {
+        completionStartedRef.current = true
+        void finish()
+      }
+    }, 250)
+    return () => clearInterval(interval)
+  }, [engine, finish, started])
+
+  useEffect(() => {
+    startedRef.current = started
+  }, [started])
+
+  useEffect(() => () => {
+    if (startedRef.current) void engine.stop()
+  }, [engine])
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active' && engine.snapshot().status === 'running') {
+        void engine.pause().then(() => setSnapshot(engine.snapshot()))
+      }
+    })
+    return () => subscription.remove()
+  }, [engine])
+
+  async function startAdventure() {
+    let permission: Awaited<ReturnType<typeof requestCameraPermission>> = 'denied'
+    try {
+      permission = await requestCameraPermission()
+    } catch {
+      permission = 'denied'
+    }
+    setAudioOnly(permission !== 'granted')
+    const input: SessionInput = { profileId: profileId ?? 'local', storyId, durationMs }
+    await playAsset(node.type === 'choice' ? node.promptAssetId : node.assetId)
+    await engine.start(input)
+    setStarted(true)
+    setSnapshot(engine.snapshot())
+  }
+
+  async function advance() {
+    if (!started || node.type === 'ending') return
+    const nextState = node.type === 'narration'
+      ? advanceStory(storyGraph, storyState, { type: 'continue' })
+      : advanceStory(storyGraph, storyState, { type: 'choose', optionId: storyState.choices[storyState.nodeId] ?? node.options[0].id, sessionBand: engine.currentEngagementBand() })
+    setStoryState(nextState)
+    const nextNode = storyGraph.nodes[nextState.nodeId]
+    await playAsset(nextNode.type === 'choice' ? nextNode.promptAssetId : nextNode.assetId)
+  }
+
+  async function choose(optionId: string) {
+    const currentNode = storyGraph.nodes[storyState.nodeId]
+    if (currentNode.type !== 'choice') return
+    const selectedOption = currentNode.options.find((option) => option.id === optionId)
+    if (!selectedOption) return
+    await playAsset(selectedOption.assetId)
+    const nextState = advanceStory(storyGraph, storyState, { type: 'choose', optionId, sessionBand: engine.currentEngagementBand() })
+    setStoryState(nextState)
+    const nextNode = storyGraph.nodes[nextState.nodeId]
+    await playAsset(nextNode.type === 'choice' ? nextNode.promptAssetId : nextNode.assetId)
+  }
+
+  async function playAsset(assetId: string) {
+    try {
+      await audio.load(assetId)
+      await audio.play()
+    } catch {
+      setAudioOnly(true)
+    }
   }
 
   if (!started) {
@@ -125,7 +185,7 @@ export function SessionScreen({
       <View style={styles.container}>
         <Text style={styles.title}>Sky Reef is ready</Text>
         <Text>Keep brushing gently while the adventure unfolds.</Text>
-        <Text>Ask a caregiver to stay nearby while you brush.</Text>
+        <Text>A caregiver remains responsible for supervision. This is a habit-support adventure, not a substitute for dental care.</Text>
         <Pressable accessibilityRole="button" onPress={() => void startAdventure()} style={styles.primaryButton}>
           <Text>Start adventure</Text>
         </Pressable>
@@ -139,7 +199,7 @@ export function SessionScreen({
       <Text>{Math.ceil(snapshot.remainingMs / 1000)} seconds left</Text>
       {audioOnly ? <Text>Audio-only mode</Text> : null}
       {audioOnly ? <Text>The adventure can still continue</Text> : null}
-      {wakeLockRevoked ? <Text>Screen may dim</Text> : null}
+      {wakeLockRevoked || snapshot.keepAwakeState === 'denied' || snapshot.keepAwakeState === 'revoked' ? <Text>Screen may dim</Text> : null}
       {!audioOnly && cameraDevice ? <Camera device={cameraDevice} isActive={snapshot.status === 'running'} style={styles.camera} /> : null}
       <Text>{snapshot.sensingStatus === 'ready' ? 'Sensing ready' : 'Sensing is taking a break'}</Text>
       {node.type === 'choice' ? (
@@ -165,8 +225,13 @@ export function SessionScreen({
           )}
         </>
       )}
-      <Pressable accessibilityLabel="Pause adventure" accessibilityRole="button" onPress={() => void engine.pause().then(() => setSnapshot(engine.snapshot()))} style={styles.secondaryButton}>
-        <Text>Pause</Text>
+      <Pressable
+        accessibilityLabel={snapshot.status === 'paused' ? 'Resume adventure' : 'Pause adventure'}
+        accessibilityRole="button"
+        onPress={() => void (snapshot.status === 'paused' ? engine.resume() : engine.pause()).then(() => setSnapshot(engine.snapshot()))}
+        style={styles.secondaryButton}
+      >
+        <Text>{snapshot.status === 'paused' ? 'Resume' : 'Pause'}</Text>
       </Pressable>
     </View>
   )

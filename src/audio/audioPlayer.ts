@@ -17,6 +17,17 @@ export interface NativeAudioPlayer {
   pause(): void
   replace(source: { uri: string }): void
   remove(): void
+  addListener?(
+    eventName: 'playbackStatusUpdate',
+    listener: (status: NativeAudioStatus) => void,
+  ): { remove(): void }
+}
+
+export interface NativeAudioStatus {
+  mediaServicesDidReset?: boolean
+  didJustFinish?: boolean
+  playing?: boolean
+  isLoaded?: boolean
 }
 
 interface LocalAudioPlayerOptions {
@@ -38,25 +49,60 @@ export class LocalAudioPlayer implements AudioPlayer {
 
   async load(assetId: AudioAssetId): Promise<void> {
     const asset = this.manifest[assetId] ?? resolveAudioAsset(assetId)
-    if (!this.nativePlayer) this.nativePlayer = this.createNativePlayer(asset)
-    else this.nativePlayer.replace({ uri: asset.uri })
-    this.loadedAssetId = asset.id
-    this.emit('ready')
+    try {
+      if (!this.nativePlayer) {
+        this.nativePlayer = this.createNativePlayer(asset)
+        this.nativePlayer.addListener?.('playbackStatusUpdate', (status) => {
+          if (status.mediaServicesDidReset) this.emit('interruption')
+          else if (status.didJustFinish) this.emit('finished')
+          else if (status.playing) this.emit('playing')
+          else if (status.isLoaded) this.emit('paused')
+        })
+      } else this.nativePlayer.replace({ uri: asset.uri })
+      this.loadedAssetId = asset.id
+      this.emit('ready')
+    } catch {
+      this.emit('error')
+      if (asset.id !== 'session-fallback') {
+        const fallback = resolveAudioAsset('session-fallback')
+        try {
+          this.nativePlayer = this.createNativePlayer(fallback)
+          this.loadedAssetId = fallback.id
+          this.emit('ready')
+        } catch {
+          this.loadedAssetId = fallback.id
+        }
+      } else {
+        this.loadedAssetId = asset.id
+      }
+    }
   }
 
   async play(): Promise<void> {
-    this.nativePlayer?.play()
-    this.emit('playing')
+    try {
+      this.nativePlayer?.play()
+      this.emit('playing')
+    } catch {
+      this.emit('error')
+    }
   }
 
   async pause(): Promise<void> {
-    this.nativePlayer?.pause()
-    this.emit('paused')
+    try {
+      this.nativePlayer?.pause()
+      this.emit('paused')
+    } catch {
+      this.emit('error')
+    }
   }
 
   async stop(): Promise<void> {
-    this.nativePlayer?.pause()
-    this.emit('finished')
+    try {
+      this.nativePlayer?.pause()
+      this.emit('finished')
+    } catch {
+      this.emit('error')
+    }
   }
 
   onStateChange(listener: (event: AudioPlayerEvent) => void): () => void {

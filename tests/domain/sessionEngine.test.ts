@@ -2,6 +2,7 @@ import type { AudioPlayer, AudioPlayerEvent } from '../../src/audio/audioPlayer'
 import type { KeepAwakeController } from '../../src/platform/keepAwake'
 import { SessionEngine, type MonotonicClock } from '../../src/domain/session/sessionEngine'
 import type { SensingAdapter } from '../../src/sensing/sensingAdapter'
+import type { SensingSignal } from '../../src/domain/session/types'
 
 class FakeMonotonicClock implements MonotonicClock {
   private time = 0
@@ -32,10 +33,16 @@ class FakeAudio implements AudioPlayer {
 }
 
 class FakeSensing implements SensingAdapter {
-  async start() {
+  private listener: ((signal: SensingSignal) => void) | null = null
+
+  async start(listener: (signal: SensingSignal) => void) {
+    this.listener = listener
     return 'ready' as const
   }
   async stop() {}
+  emit(signal: SensingSignal) {
+    this.listener?.(signal)
+  }
 }
 
 class FakeKeepAwake implements KeepAwakeController {
@@ -95,5 +102,22 @@ describe('SessionEngine', () => {
     expect(second).toEqual(first)
     expect(keepAwake.releases).toBe(1)
     expect(engine.snapshot().status).toBe('stopped')
+  })
+
+  it('exposes the current coarse engagement band for story choices', async () => {
+    const sensing = new FakeSensing()
+    const { engine } = {
+      ...createEngine(),
+      engine: new SessionEngine({
+        clock: new FakeMonotonicClock(),
+        audio: new FakeAudio(),
+        sensing,
+        keepAwake: new FakeKeepAwake(),
+      }),
+    }
+    await engine.start({ profileId: 'p1', storyId: 'sky-reef', durationMs: 120_000 })
+    sensing.emit({ status: 'ready', motionScore: 0.95, coveragePrompt: 'upper', confidence: 'high' })
+
+    expect(engine.currentEngagementBand()).toBe('strong')
   })
 })

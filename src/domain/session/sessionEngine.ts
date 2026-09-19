@@ -111,6 +111,10 @@ export class SessionEngine {
     }
   }
 
+  currentEngagementBand(): EngagementBand {
+    return this.engagementBand()
+  }
+
   private updateElapsed(): void {
     if (this.status !== 'running' || this.runningSinceMs === null) return
     this.accumulatedElapsedMs += Math.max(0, this.dependencies.clock.now() - this.runningSinceMs)

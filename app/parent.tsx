@@ -123,7 +123,7 @@ export default function ParentScreen() {
           {(history[profile.id] ?? []).length === 0 ? <Text>No sessions yet.</Text> : null}
           {(history[profile.id] ?? []).map((summary, index) => (
             <Text key={`${summary.storyId}-${index}`}>
-              {summary.storyId} · {Math.round(summary.completedDurationMs / 1000)} seconds · {summary.completed ? 'completed' : 'stopped'}
+              {summary.createdAt ? new Date(summary.createdAt).toLocaleDateString() : 'Date unavailable'} · {summary.storyId} · {Math.round(summary.completedDurationMs / 1000)} seconds · {summary.completed ? 'completed' : 'stopped'}
             </Text>
           ))}
           <Pressable accessibilityRole="button" onPress={() => confirmDelete(profile)}>

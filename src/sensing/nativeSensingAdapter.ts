@@ -57,22 +57,26 @@ export class NativeSensingAdapter implements SensingAdapter {
 
   async start(listener: SensingListener): Promise<SensingStatus> {
     this.listener = listener
-    const visionCamera = getVisionCamera()
-    const permissionStatus = visionCamera.cameraPermissionStatus
-    if (permissionStatus === 'restricted') return 'unsupported'
-    if (permissionStatus === 'denied') return 'permissionDenied'
-    if (permissionStatus === 'not-determined' && !(await visionCamera.requestCameraPermission())) {
-      return 'permissionDenied'
-    }
+    try {
+      const visionCamera = getVisionCamera()
+      const permissionStatus = visionCamera.cameraPermissionStatus
+      if (permissionStatus === 'restricted') return 'unsupported'
+      if (permissionStatus === 'denied') return 'permissionDenied'
+      if (permissionStatus === 'not-determined' && !(await visionCamera.requestCameraPermission())) {
+        return 'permissionDenied'
+      }
 
-    this.running = true
-    listener({
-      status: 'ready',
-      motionScore: 0,
-      coveragePrompt: null,
-      confidence: 'low',
-    })
-    return 'ready'
+      this.running = true
+      listener({
+        status: 'ready',
+        motionScore: 0,
+        coveragePrompt: null,
+        confidence: 'low',
+      })
+      return 'ready'
+    } catch {
+      return 'processingUnavailable'
+    }
   }
 
   async stop(): Promise<void> {

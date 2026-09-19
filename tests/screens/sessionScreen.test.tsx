@@ -80,6 +80,20 @@ describe('SessionScreen', () => {
     expect(rendered.getByText('Brush session in progress')).toBeTruthy()
   })
 
+  it('shows the same non-blocking notice when wake lock acquisition is denied', async () => {
+    const keepAwake: KeepAwakeController = {
+      acquire: async () => 'denied',
+      release: async () => undefined,
+    }
+    const rendered = await render(<SessionScreen storyId="sky-reef" keepAwake={keepAwake} />)
+    await act(async () => {
+      fireEvent.press(rendered.getByRole('button', { name: 'Start adventure' }))
+    })
+
+    expect(await rendered.findByText('Screen may dim')).toBeTruthy()
+    expect(rendered.getByText('Brush session in progress')).toBeTruthy()
+  })
+
   it('progresses through authored choices and persists one completion summary', async () => {
     const rendered = await render(<SessionScreen storyId="sky-reef" profileId="profile-1" />)
     const press = async (name: string) => {

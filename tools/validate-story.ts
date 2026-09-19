@@ -44,7 +44,7 @@ export function validateAudioManifest(manifest: AudioManifest): void {
     if (!Number.isFinite(clip.durationMs) || clip.durationMs <= 0) {
       throw new Error(`Audio clip ${assetId} must have a positive duration`)
     }
-    if (!clip.speakerRole || !clip.reviewStatus || clip.reviewed !== true) {
+    if (!clip.speakerRole || clip.reviewStatus !== 'adult-reviewed' || clip.reviewed !== true) {
       throw new Error(`Audio clip ${assetId} must be adult-reviewed`)
     }
   }

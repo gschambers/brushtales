@@ -9,6 +9,7 @@ interface SessionSummaryRow {
   engagement_band: SessionSummary['engagementBand']
   confidence: SessionSummary['confidence']
   interrupted: number
+  created_at: string
 }
 
 export interface SessionRepository {
@@ -25,6 +26,7 @@ function toSummary(row: SessionSummaryRow): SessionSummary {
     engagementBand: row.engagement_band,
     confidence: row.confidence,
     interrupted: row.interrupted === 1,
+    createdAt: row.created_at,
   }
 }
 
@@ -48,7 +50,7 @@ export function createSessionRepository(database: DatabasePort): SessionReposito
 
     async listForProfile(profileId) {
       const rows = await database.getAllAsync<SessionSummaryRow>(
-        'SELECT profile_id, story_id, completed, completed_duration_ms, engagement_band, confidence, interrupted FROM session_summaries WHERE profile_id = ? ORDER BY created_at ASC',
+        'SELECT profile_id, story_id, completed, completed_duration_ms, engagement_band, confidence, interrupted, created_at FROM session_summaries WHERE profile_id = ? ORDER BY created_at ASC',
         [profileId],
       )
       return rows.map(toSummary)

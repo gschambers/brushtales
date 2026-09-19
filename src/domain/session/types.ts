@@ -42,4 +42,5 @@ export interface SessionSummary {
   engagementBand: EngagementBand
   confidence: SensingConfidence
   interrupted: boolean
+  createdAt?: string
 }
