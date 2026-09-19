@@ -1,0 +1,22 @@
+{
+  "storyId": "sky-reef",
+  "clips": {
+    "intro": { "bundledPath": "audio/sky-reef/intro.m4a", "durationMs": 9000, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-1": { "bundledPath": "audio/sky-reef/choice-1.m4a", "durationMs": 4500, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-bubbles": { "bundledPath": "audio/sky-reef/choice-bubbles.m4a", "durationMs": 2200, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-clouds": { "bundledPath": "audio/sky-reef/choice-clouds.m4a", "durationMs": 2200, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "bubbles-intro": { "bundledPath": "audio/sky-reef/bubbles-intro.m4a", "durationMs": 7000, "speakerRole": "sky-reef-guide", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "clouds-intro": { "bundledPath": "audio/sky-reef/clouds-intro.m4a", "durationMs": 7000, "speakerRole": "sky-reef-guide", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-2": { "bundledPath": "audio/sky-reef/choice-2.m4a", "durationMs": 4500, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-bell": { "bundledPath": "audio/sky-reef/choice-bell.m4a", "durationMs": 2200, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-song": { "bundledPath": "audio/sky-reef/choice-song.m4a", "durationMs": 2200, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "bell-intro": { "bundledPath": "audio/sky-reef/bell-intro.m4a", "durationMs": 6000, "speakerRole": "sky-reef-guide", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "song-intro": { "bundledPath": "audio/sky-reef/song-intro.m4a", "durationMs": 6000, "speakerRole": "sky-reef-guide", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-3": { "bundledPath": "audio/sky-reef/choice-3.m4a", "durationMs": 5000, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-share": { "bundledPath": "audio/sky-reef/choice-share.m4a", "durationMs": 2300, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "choice-save": { "bundledPath": "audio/sky-reef/choice-save.m4a", "durationMs": 2500, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "ending-share": { "bundledPath": "audio/sky-reef/ending-share.m4a", "durationMs": 8000, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "ending-save": { "bundledPath": "audio/sky-reef/ending-save.m4a", "durationMs": 8000, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" },
+    "ending-bubbles": { "bundledPath": "audio/sky-reef/ending-bubbles.m4a", "durationMs": 7500, "speakerRole": "narrator", "reviewed": true, "reviewStatus": "adult-reviewed" }
+  }
+}

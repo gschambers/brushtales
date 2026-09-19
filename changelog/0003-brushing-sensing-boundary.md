@@ -26,3 +26,13 @@ plaque, cavity, gum, or medical scores.
 
 The app needs honest uncertainty states and an audio-only fallback. A
 feasibility experiment must be completed before selecting a model.
+
+## Feasibility status — 2026-09-19
+
+The implementation preserves this boundary with a configurable derived-feature
+seam and a conservative baseline adapter. The device matrix and manual
+scenarios are documented in `research/vision-test-matrix.md` and
+`tests/device/visionScenarios.md`, but no physical devices were available in
+this workspace, so no accuracy, thermal, battery, or frame-drop result is
+claimed. The model decision remains open until representative iOS and Android
+testing is completed.
