@@ -160,6 +160,46 @@ permissions:
   - action: shell
     resource: "git -C * worktree*"
     effect: deny
+  # Safe orchestration primitives required by the delivery workflow. Keep
+  # publication, destructive Git, and arbitrary workspace mutation denied;
+  # these narrow rules avoid routing deterministic setup through the
+  # model-review plugin.
+  - action: shell
+    resource: "git fetch origin main"
+    effect: allow
+  - action: shell
+    resource: "git rev-parse *"
+    effect: allow
+  - action: shell
+    resource: "git status *"
+    effect: allow
+  - action: shell
+    resource: "git worktree list*"
+    effect: allow
+  - action: shell
+    resource: "git worktree add .worktrees/* -b * origin/main"
+    effect: allow
+  - action: shell
+    resource: "herdr status server"
+    effect: allow
+  - action: shell
+    resource: "herdr worktree list *"
+    effect: allow
+  - action: shell
+    resource: "herdr worktree open *"
+    effect: allow
+  - action: shell
+    resource: "herdr pane list *"
+    effect: allow
+  - action: shell
+    resource: "herdr pane run * OPENCODE_CONFIG=* opencode*"
+    effect: allow
+  - action: shell
+    resource: "herdr pane run * cd * && OPENCODE_CONFIG=* opencode*"
+    effect: allow
+  - action: shell
+    resource: "herdr pane send-keys * Enter"
+    effect: allow
   - action: shell
     resource: "gh *"
     effect: deny
