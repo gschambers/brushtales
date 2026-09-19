@@ -18,6 +18,7 @@ export interface ChoiceOption {
 
 export interface ChoiceNode {
   type: 'choice'
+  promptAssetId: AudioAssetId
   prompt: AgeBandCopy
   options: ChoiceOption[]
 }

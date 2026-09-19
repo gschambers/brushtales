@@ -17,6 +17,7 @@ const graph: StoryGraph = {
     intro: { type: 'narration', assetId: 'intro', next: 'choice-1' },
     'choice-1': {
       type: 'choice',
+      promptAssetId: 'choice-1',
       prompt: copy,
       options: [
         {

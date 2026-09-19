@@ -58,6 +58,7 @@ function validateNode(
   }
 
   assertAgeBandCopy(node.prompt, nodeId)
+  assertAsset(node.promptAssetId, assetIds, `${nodeId}:prompt`)
   if (node.options.length < 2) throw new Error(`Choice node ${nodeId} needs at least two options`)
 
   for (const option of node.options) {

@@ -5,6 +5,7 @@
     "intro": { "type": "narration", "assetId": "intro", "next": "choice-1" },
     "choice-1": {
       "type": "choice",
+      "promptAssetId": "choice-1",
       "prompt": {
         "4-5": "Should we follow the glowing bubbles or the silver clouds?",
         "6-7": "Which path should guide the sky-reef voyage?",
@@ -29,6 +30,7 @@
     "clouds-intro": { "type": "narration", "assetId": "clouds-intro", "next": "choice-2" },
     "choice-2": {
       "type": "choice",
+      "promptAssetId": "choice-2",
       "prompt": {
         "4-5": "Do we ring the little bell or hum a brave song?",
         "6-7": "How should the crew wake the sleeping starfish?",
@@ -53,6 +55,7 @@
     "song-intro": { "type": "narration", "assetId": "song-intro", "next": "choice-3" },
     "choice-3": {
       "type": "choice",
+      "promptAssetId": "choice-3",
       "prompt": {
         "4-5": "Should we share the treasure or hide it?",
         "6-7": "What should the crew do with the reef’s bright treasure?",
