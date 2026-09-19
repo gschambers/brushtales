@@ -196,7 +196,7 @@ class OpenCodePreflight:
             raise RuntimeError(
                 "project OpenCode config is malformed; restore opencode.json from the committed repository file"
             ) from error
-        if not self._has_plugin(data):
+        if not self._has_committed_plugin(data):
             raise RuntimeError(
                 "opencode-auto-permissions is missing or malformed; configure plugin as a JSON array of strings "
                 "or install it with: opencode plugin add opencode-auto-permissions"
@@ -205,19 +205,83 @@ class OpenCodePreflight:
             effective = self.runner(("opencode", "debug", "config"), cwd=str(self.repository_root),
                                     text=True, env={**os.environ, "OPENCODE_CONFIG": str(config)})
             parsed = json.loads(effective)
-        except (OSError, subprocess.CalledProcessError, ValueError) as error:
+        except (OSError, subprocess.CalledProcessError, TypeError, ValueError) as error:
             raise RuntimeError("verify OpenCode effective config with: opencode debug config") from error
-        if not self._has_plugin(parsed):
+        if not self._has_effective_plugin(parsed, config):
             raise RuntimeError(
-                "effective OpenCode config is missing or has a malformed plugin; configure plugin as a JSON array "
-                "of strings and verify with: opencode debug config"
+                "effective OpenCode config is missing, ambiguous, or has a malformed canonical project plugin; "
+                "configure plugin as a JSON array of strings and verify with: opencode debug config"
             )
 
     def _has_plugin(self, config):
         if not isinstance(config, dict):
             return False
+        keys = [key for key in ("plugin", "plugins") if key in config]
+        if len(keys) != 1:
+            return False
+        plugins = config[keys[0]]
+        return isinstance(plugins, list) and all(isinstance(plugin, str) for plugin in plugins) and self.plugin in plugins
+
+    def _has_committed_plugin(self, config):
+        if not isinstance(config, dict) or "plugin" not in config or "plugins" in config:
+            return False
         plugins = config.get("plugin")
         return isinstance(plugins, list) and all(isinstance(plugin, str) for plugin in plugins) and self.plugin in plugins
+
+    def _has_effective_plugin(self, parsed, config):
+        if isinstance(parsed, dict):
+            return self._has_plugin(parsed)
+        if not isinstance(parsed, list):
+            return False
+        documents = []
+        expected_path = config.resolve()
+        for document in parsed:
+            if not isinstance(document, dict):
+                return False
+            path = document.get("path")
+            info = document.get("info")
+            if not isinstance(path, str) or not isinstance(info, dict):
+                return False
+            try:
+                document_path = self._normalise_effective_path(path)
+                if not self._is_canonical_effective_path(document_path, expected_path):
+                    continue
+            except (OSError, RuntimeError, ValueError):
+                return False
+            if document_path == expected_path:
+                documents.append(document)
+        if len(documents) != 1:
+            return False
+        info = documents[0].get("info")
+        return self._has_plugin(info)
+
+    def _normalise_effective_path(self, path):
+        """Normalize relative paths against cwd, without following reported aliases."""
+        reported = Path(path)
+        if not reported.is_absolute():
+            reported = self.repository_root / reported
+        current = Path(reported.anchor)
+        for component in reported.parts[1:]:
+            if component == "..":
+                current = current.parent
+                continue
+            if component == ".":
+                continue
+            current /= component
+            if current.is_symlink():
+                raise ValueError("effective config path contains a symlink")
+        return Path(os.path.normpath(os.fspath(reported)))
+
+    @staticmethod
+    def _is_canonical_effective_path(path, expected_path):
+        if path != expected_path:
+            return False
+        current = Path(path.anchor)
+        for component in path.parts[1:]:
+            current /= component
+            if current.is_symlink():
+                return False
+        return True
 
 
 class BuildEntrypoint:
