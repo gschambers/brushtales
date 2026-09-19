@@ -1,0 +1,80 @@
+{
+  "storyId": "sky-reef",
+  "startNodeId": "intro",
+  "nodes": {
+    "intro": { "type": "narration", "assetId": "intro", "next": "choice-1" },
+    "choice-1": {
+      "type": "choice",
+      "prompt": {
+        "4-5": "Should we follow the glowing bubbles or the silver clouds?",
+        "6-7": "Which path should guide the sky-reef voyage?",
+        "8-9": "Which current should carry the expedition into the unknown?"
+      },
+      "options": [
+        {
+          "id": "bubbles",
+          "label": { "4-5": "Follow bubbles", "6-7": "Follow the bubbles", "8-9": "Trace the bubble current" },
+          "assetId": "choice-bubbles",
+          "nextByEngagement": { "low": "bubbles-intro", "steady": "bubbles-intro", "strong": "bubbles-intro" }
+        },
+        {
+          "id": "clouds",
+          "label": { "4-5": "Chase clouds", "6-7": "Chase the clouds", "8-9": "Chase the silver clouds" },
+          "assetId": "choice-clouds",
+          "nextByEngagement": { "low": "clouds-intro", "steady": "clouds-intro", "strong": "clouds-intro" }
+        }
+      ]
+    },
+    "bubbles-intro": { "type": "narration", "assetId": "bubbles-intro", "next": "choice-2" },
+    "clouds-intro": { "type": "narration", "assetId": "clouds-intro", "next": "choice-2" },
+    "choice-2": {
+      "type": "choice",
+      "prompt": {
+        "4-5": "Do we ring the little bell or hum a brave song?",
+        "6-7": "How should the crew wake the sleeping starfish?",
+        "8-9": "Which signal should awaken the starfish navigator?"
+      },
+      "options": [
+        {
+          "id": "bell",
+          "label": { "4-5": "Ring the bell", "6-7": "Ring the sky bell", "8-9": "Sound the sky bell" },
+          "assetId": "choice-bell",
+          "nextByEngagement": { "low": "bell-intro", "steady": "bell-intro", "strong": "bell-intro" }
+        },
+        {
+          "id": "song",
+          "label": { "4-5": "Hum a song", "6-7": "Hum a brave song", "8-9": "Hum an old navigator song" },
+          "assetId": "choice-song",
+          "nextByEngagement": { "low": "song-intro", "steady": "song-intro", "strong": "song-intro" }
+        }
+      ]
+    },
+    "bell-intro": { "type": "narration", "assetId": "bell-intro", "next": "choice-3" },
+    "song-intro": { "type": "narration", "assetId": "song-intro", "next": "choice-3" },
+    "choice-3": {
+      "type": "choice",
+      "prompt": {
+        "4-5": "Should we share the treasure or hide it?",
+        "6-7": "What should the crew do with the reef’s bright treasure?",
+        "8-9": "How should the expedition answer the reef’s generous discovery?"
+      },
+      "options": [
+        {
+          "id": "share",
+          "label": { "4-5": "Share it", "6-7": "Share the treasure", "8-9": "Share the discovery" },
+          "assetId": "choice-share",
+          "nextByEngagement": { "low": "ending-share", "steady": "ending-share", "strong": "ending-bubbles" }
+        },
+        {
+          "id": "save",
+          "label": { "4-5": "Save it", "6-7": "Save it for later", "8-9": "Save a piece for the journey" },
+          "assetId": "choice-save",
+          "nextByEngagement": { "low": "ending-save", "steady": "ending-save", "strong": "ending-save" }
+        }
+      ]
+    },
+    "ending-share": { "type": "ending", "assetId": "ending-share", "summaryKey": "shared-light" },
+    "ending-save": { "type": "ending", "assetId": "ending-save", "summaryKey": "pocket-star" },
+    "ending-bubbles": { "type": "ending", "assetId": "ending-bubbles", "summaryKey": "bubble-map" }
+  }
+}
