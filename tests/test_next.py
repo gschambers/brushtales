@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tooling.next import MetadataError, main, select_tasks
 
@@ -19,6 +20,35 @@ class NextSelectorTests(unittest.TestCase):
             self._task(root, "004", "high", 2, "Unfinished dependency", status="in_progress")
             self._task(root, "005", "high", 3, "Earlier high task")
             self.assertEqual([task.id for task in select_tasks(root, 10)], ["002", "005", "001"])
+
+    def test_selector_closes_sqlite_connection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repository(Path(directory))
+            self._task(root, "001", "high", 1, "Closable task")
+            real_connection = sqlite3.connect(root / "planning/index.sqlite3")
+
+            class TrackingConnection:
+                def __init__(self, connection):
+                    self.connection = connection
+                    self.closed = False
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    return False
+
+                def execute(self, *args):
+                    return self.connection.execute(*args)
+
+                def close(self):
+                    self.closed = True
+                    self.connection.close()
+
+            tracked = TrackingConnection(real_connection)
+            with mock.patch("tooling.next.sqlite3.connect", return_value=tracked):
+                select_tasks(root)
+            self.assertTrue(tracked.closed)
 
     def test_rejects_sqlite_markdown_drift(self):
         with tempfile.TemporaryDirectory() as directory:

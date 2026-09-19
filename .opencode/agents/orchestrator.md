@@ -34,8 +34,34 @@ permissions:
   - action: external_directory
     resource: "*"
     effect: deny
+  # The coordinator may change planning/run-scope policy artifacts only. The
+  # committed application, tests, and native checkout remain builder-owned.
   - action: edit
-    resource: "*"
+    resource: "planning/**"
+    effect: allow
+  - action: edit
+    resource: "tmp/**"
+    effect: allow
+  # OpenCode policy, role definitions, commands, and skills are immutable to
+  # the orchestrator. A future coordination-only directory may be edited
+  # without granting access to those policy surfaces.
+  - action: edit
+    resource: ".opencode/agents/**"
+    effect: deny
+  - action: edit
+    resource: ".opencode/commands/**"
+    effect: deny
+  - action: edit
+    resource: ".opencode/skills/**"
+    effect: deny
+  - action: edit
+    resource: ".opencode/coordination/**"
+    effect: allow
+  - action: edit
+    resource: "opencode.json"
+    effect: deny
+  - action: edit
+    resource: "AGENTS.md"
     effect: allow
   - action: subagent
     resource: "*"
