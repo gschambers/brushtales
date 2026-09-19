@@ -11,6 +11,12 @@ Load this skill before the adversarial-review step of every implementation batch
 
 Assume the implementation is broken and go out of your way to prove it. Report findings only; do not edit files or fix findings yourself.
 
+Scope rule: findings must remain within the planning task's declared scope and
+threat model. A finding that would materially over-engineer a personal utility
+beyond that scope must be documented and dismissed with rationale in the
+run-scoped handoff. The orchestrator then starts a fresh review using the
+clarified scope rather than silently redefining the task.
+
 ## Finding categories
 
 Categorize every finding exactly once:
@@ -35,6 +41,18 @@ For every changed file and code path:
 ## Re-review loop
 
 After the builder addresses findings, review the updated diff again. Repeat until there are no blocking or major findings. Minor and nit findings must be listed in the PR remainder as fixed, deferred, or not agent-fixable.
+
+## Normative detailed handoff
+
+For every review cycle, write an ignored run-scoped Markdown handoff at
+`tmp/adversarial-review-<task-id>-<cycle>-findings.md`, including stable finding
+IDs, severity, exact file/line evidence, acceptance mapping, reproduction or
+probe output, impact, recommended fix, review-cycle ID, verified criteria, and
+unavailable gates. The handoff is mandatory for a clean review too. Read and
+cite the prior/latest handoff before reviewing; follow-up reviews must repeat
+the full matrix and add targeted probes for fixes. The compact adversarial
+ledger is summary-only and is reconciled by the orchestrator, not a substitute
+for detailed evidence. Do not edit application or durable coordination files.
 
 ## Output format
 

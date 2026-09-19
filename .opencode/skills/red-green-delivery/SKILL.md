@@ -40,3 +40,15 @@ One planning task (`planning/NNN-*.md`) is one delivery batch. A batch ends only
 5. the change is committed on its feature branch and delivered through a pull request.
 
 Coordination-only changes such as research, planning, or skill documentation may use document/schema validation instead of inventing a failing application test, but they still require review and verification appropriate to the change.
+
+## Review-handoff dependency
+
+When a batch follows adversarial findings, read and cite the latest ignored
+`tmp/adversarial-review-<task-id>-<cycle>-findings.md` before writing the next
+failing test. Map each test and fix to the handoff's stable ID and acceptance
+criterion. The handoff records severity, exact file/line evidence, reproduction
+or probe output, impact, recommended fix, review cycle, verified criteria, and
+unavailable gates. Do not rely on the compact ledger alone; it is summary-only and must
+be reconciled by the orchestrator. The follow-up adversary must receive and cite
+the same detailed handoff, repeat the full review matrix, and record verified
+criteria and unavailable gates in its next handoff.

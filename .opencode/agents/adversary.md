@@ -212,3 +212,15 @@ Report findings only. Do not fix implementation or durable coordination files,
 stage changes, commit, or push. Disposable probe files under `tmp/` are allowed.
 
 Categorize each finding as exactly one of: blocking, major, minor, or nit. Review tests, edge cases, privacy, safety, camera/audio behavior, local profile isolation, and workflow compliance.
+
+## Required detailed handoff
+
+Every review cycle must leave an ignored Markdown handoff at
+`tmp/adversarial-review-<task-id>-<cycle>-findings.md`, including stable IDs,
+severity, exact file/line evidence, acceptance mapping, reproduction/probe
+output, impact, recommended fix, review-cycle identifier, verified criteria,
+and unavailable gates. The handoff is required for clean reviews as well as
+finding-bearing reviews. Read and cite the latest prior handoff; follow-ups must
+repeat the full matrix and add targeted probes for every fix. The compact ledger
+is summary-only and must be reconciled by the orchestrator. Report only and do
+not modify application or durable coordination files.

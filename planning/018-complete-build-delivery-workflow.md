@@ -35,9 +35,9 @@ acceptance criteria are fully satisfied.
   verifies the current `origin/main`, refuses an ordinary dirty or non-main
   root, and never performs application edits in the canonical checkout.
 - If `.worktrees/<task-id>` is absent, the workflow creates that exact
- registered worktree from the validated `origin/main` with a deterministic
- feature branch. If it exists, the workflow verifies its exact path, shared
- Git identity, branch, clean state, and base freshness before reuse.
+  registered worktree from the validated `origin/main` with a deterministic
+  feature branch. If it exists, the workflow verifies its exact path, shared
+  Git identity, branch, clean state, and base freshness before reuse.
 - Each task launches one independent OpenCode **orchestrator** session with the
   explicit `/build <task-id>` handoff from the canonical checkout. The spawned
   workflow owns the delegation spec, builder, adversarial review, verification,
@@ -49,10 +49,10 @@ acceptance criteria are fully satisfied.
   Enter` operation. It must not use `opencode run`, unsupported `--dir` flags,
   or assume that `--prompt` submits the message by itself.
 - Herdr, when available, launches against the explicitly selected workspace and
-  pane for the intended canonical/task context without relying on focus or
-  pane ordering. The ordinary local OpenCode fallback uses the same absolute
-  root and task context and never stops a shared Herdr server. If Herdr is absent
-  or unsupported, the fallback is the normal path; no descriptor-level Herdr
+  pane for the intended canonical/task context without relying on focus or pane
+  ordering. The ordinary local OpenCode fallback uses the same absolute root
+  and task context and never stops a shared Herdr server. If Herdr is absent or
+  unsupported, the fallback is the normal path; no descriptor-level Herdr
   security protocol is required for this personal-device workflow.
 - The build path does not rewrite `opencode.json` or synthesize a competing
   permission policy. The committed agent permissions remain the hard role and
@@ -73,8 +73,9 @@ acceptance criteria are fully satisfied.
   creation and freshness, explicit `/build` handoff, Herdr targeting and
   fallback, permission/plugin check-only behavior, interruption, and run-record
   output. Tests should prefer direct, readable behavior checks over an
-  exhaustive hostile-filesystem race matrix. Tests do not touch a shared Herdr
-  workspace, global server, user OpenCode configuration, or real credentials.
+  exhaustive hostile-filesystem race matrix.
+  Tests do not touch a shared Herdr workspace, global server, user OpenCode
+  configuration, or real credentials.
 
 ## Verification
 

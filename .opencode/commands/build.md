@@ -33,6 +33,30 @@ Delegate the spec to `builder` in the feature worktree directory. OpenCode V2.0.
 
 Delegate the resulting diff to `adversary` with **both** the absolute feature-worktree path and the absolute delegation-spec path created in Step 3. Start a fresh independent adversary conversation for every review; do not reuse the builder session or a prior review session by default. The orchestrator owns the run-scoped ledger under `tmp/`: after each builder/adversary report it records stable IDs, evidence, disposition, and re-review state; agents read and reference the ledger but never edit it. Never allow either path to resolve against a different checkout. For a reviewer launched from the main checkout, keep these executable review targets relative to that checkout: `git -C .worktrees/<task-id> diff` for unstaged changes, `git -C .worktrees/<task-id> diff --cached` for staged changes, and `git -C .worktrees/<task-id> diff origin/main...HEAD` for committed changes. Also enumerate and read every untracked path reported by `git -C .worktrees/<task-id> status --short --untracked-files=all`; Git diff commands omit untracked files. When the reviewer cwd is already the feature worktree, use the absolute equivalents (`git -C <absolute-feature-worktree> diff`, `git -C <absolute-feature-worktree> diff --cached`, `git -C <absolute-feature-worktree> diff origin/main...HEAD`, and `git -C <absolute-feature-worktree> status --short --untracked-files=all`) and pass the same absolute delegation-spec path. If an absolute-path Git command is denied by session policy, do not claim certification: launch the reviewer rooted at main with the relative `.worktrees/<task-id>` targets, or obtain safe `git -C` access first. The adversary must load `adversarial-review`, repeat the full review matrix, report blocking/major/minor/nit findings, and never edit. Have the builder address findings and repeat the full review until no blocking or major findings remain.
 
+### Required detailed review handoff
+
+Every review cycle must produce an ignored, run-scoped Markdown handoff at
+`tmp/adversarial-review-<task-id>-<cycle>-findings.md`. The handoff is required
+even when there are no findings and must include, for every stable finding ID:
+severity; exact file/line evidence; acceptance-criteria mapping; reproduction
+or probe output; impact; recommended fix; review-cycle identifier; verified criteria;
+and unavailable verification gates. Builders must read and cite the
+handoff before fixing findings. Follow-up adversaries must read and cite the
+latest handoff, repeat the complete matrix, and add targeted probes for every
+fix. The compact `tmp/adversarial-ledger-<task-id>.md` is summary-only; the
+orchestrator must reconcile it against the detailed handoff with evidence,
+disposition, and re-review status and must never treat a summary row as review
+evidence by itself. Preserve each detailed handoff for the run; do not replace
+it with a compact report.
+
+## Scope-aware review
+
+Review findings must stay within the planning task's declared scope and threat
+model. If a finding would materially over-engineer a personal utility beyond
+that scope, document and dismiss it with rationale in the run-scoped handoff,
+then start a fresh review with the clarified scope; do not silently redefine
+the task.
+
 ## Step 6 — Verify
 
 Load `verification` and run every applicable gate. Any failure is a hard stop.

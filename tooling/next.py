@@ -133,7 +133,8 @@ def select_tasks(root: Path, limit: int = 1) -> list[Task]:
         raise MetadataError("planning index is unavailable") from error
     if stat.S_ISLNK(database_mode) or not stat.S_ISREG(database_mode):
         raise MetadataError("planning index is not a regular file")
-    with sqlite3.connect(database) as connection:
+    connection = sqlite3.connect(database)
+    try:
         rows = connection.execute(
             "SELECT id, slug, title, path, status, priority, sequence, summary FROM tasks ORDER BY id"
         ).fetchall()
@@ -142,6 +143,8 @@ def select_tasks(root: Path, limit: int = 1) -> list[Task]:
         ).fetchall()
         label_rows = connection.execute("SELECT name FROM labels").fetchall()
         task_label_rows = connection.execute("SELECT task_id, label FROM task_labels").fetchall()
+    finally:
+        connection.close()
 
     normalized_rows = [_task_row(row) for row in rows]
     for field_index, field_name in ((0, "task ID"), (1, "slug"), (3, "path"), (6, "sequence")):
