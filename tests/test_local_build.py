@@ -474,6 +474,237 @@ class LocalBuildTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "missing|plugin|committed"):
                 preflight.ensure()
 
+    def test_opencode_preflight_normalizes_non_text_effective_config_output(self):
+        """F-006: malformed runner output gets stable effective-config guidance."""
+        for runner_result in (None, {"plugin": ["opencode-auto-permissions"]}):
+            with self.subTest(runner_result=runner_result), tempfile.TemporaryDirectory() as directory:
+                root = self._repo(Path(directory), worktree_ids=())
+                preflight = build.OpenCodePreflight(
+                    root / "opencode.json",
+                    runner=lambda argv, value=runner_result, **kwargs: value,
+                    repository_root=root,
+                )
+                with self.assertRaises(RuntimeError) as context:
+                    preflight.ensure()
+                self.assertEqual(
+                    str(context.exception),
+                    "verify OpenCode effective config with: opencode debug config",
+                )
+
+    def test_opencode_preflight_accepts_canonical_project_document_array(self):
+        """The effective config is an ordered document array with project metadata."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repo(Path(directory), worktree_ids=())
+            project_config = root / "opencode.json"
+            effective = json.dumps([
+                {
+                    "path": str(root / ".config/opencode/opencode.json"),
+                    "info": {"plugins": ["opencode-auto-permissions"]},
+                },
+                {
+                    "path": str(project_config),
+                    "info": {"plugins": ["opencode-auto-permissions"]},
+                },
+            ])
+            preflight = build.OpenCodePreflight(
+                project_config,
+                runner=lambda argv, **kwargs: effective,
+                repository_root=root,
+            )
+            preflight.ensure()
+
+    def test_opencode_preflight_resolves_relative_document_from_repository_cwd(self):
+        """Relative debug paths are relative to the command's explicit repository cwd."""
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as caller:
+            root = self._repo(Path(directory), worktree_ids=())
+            effective = json.dumps([{
+                "path": "opencode.json",
+                "info": {"plugin": ["opencode-auto-permissions"]},
+            }])
+            preflight = build.OpenCodePreflight(
+                root / "opencode.json",
+                runner=lambda argv, **kwargs: effective,
+                repository_root=root,
+            )
+            original_cwd = os.getcwd()
+            try:
+                os.chdir(caller)
+                preflight.ensure()
+            finally:
+                os.chdir(original_cwd)
+
+    def test_opencode_preflight_rejects_external_and_in_tree_symlink_aliases(self):
+        """Only the reported canonical project path may satisfy the document lookup."""
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as outside:
+            root = self._repo(Path(directory), worktree_ids=())
+            project_config = root / "opencode.json"
+            aliases = (
+                Path(outside) / "external-opencode.json",
+                root / "in-tree-alias.json",
+            )
+            for alias in aliases:
+                with self.subTest(alias=alias):
+                    alias.symlink_to(project_config)
+                    effective = json.dumps([{
+                        "path": str(alias),
+                        "info": {"plugin": ["opencode-auto-permissions"]},
+                    }])
+                    preflight = build.OpenCodePreflight(
+                        project_config,
+                        runner=lambda argv, value=effective, **kwargs: value,
+                        repository_root=root,
+                    )
+                    with self.assertRaisesRegex(RuntimeError, "effective|canonical|project"):
+                        preflight.ensure()
+
+    def test_opencode_preflight_rejects_duplicate_canonical_documents(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repo(Path(directory), worktree_ids=())
+            effective = json.dumps([
+                {"path": str(root / "opencode.json"),
+                 "info": {"plugin": ["opencode-auto-permissions"]}},
+                {"path": str(root / "opencode.json"),
+                 "info": {"plugins": ["opencode-auto-permissions"]}},
+            ])
+            preflight = build.OpenCodePreflight(
+                root / "opencode.json",
+                runner=lambda argv, **kwargs: effective,
+                repository_root=root,
+            )
+            with self.assertRaisesRegex(RuntimeError, "effective|ambiguous|canonical"):
+                preflight.ensure()
+
+    def test_opencode_preflight_rejects_malformed_effective_document_entries(self):
+        malformed_documents = (
+            None,
+            {"path": 7, "info": {}},
+            {"path": "opencode.json"},
+            {"path": "opencode.json", "info": []},
+        )
+        for malformed in malformed_documents:
+            with self.subTest(malformed=malformed), tempfile.TemporaryDirectory() as directory:
+                root = self._repo(Path(directory), worktree_ids=())
+                effective = json.dumps([
+                    {"path": str(root / "opencode.json"),
+                     "info": {"plugin": ["opencode-auto-permissions"]}},
+                    malformed,
+                ])
+                preflight = build.OpenCodePreflight(
+                    root / "opencode.json",
+                    runner=lambda argv, value=effective, **kwargs: value,
+                    repository_root=root,
+                )
+                with self.assertRaisesRegex(RuntimeError, "effective|malformed|canonical"):
+                    preflight.ensure()
+
+    def test_opencode_preflight_rejects_malformed_effective_path_with_stable_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repo(Path(directory), worktree_ids=())
+            effective = json.dumps([{
+                "path": "\x00",
+                "info": {"plugin": ["opencode-auto-permissions"]},
+            }])
+            preflight = build.OpenCodePreflight(
+                root / "opencode.json",
+                runner=lambda argv, **kwargs: effective,
+                repository_root=root,
+            )
+            with self.assertRaisesRegex(RuntimeError, "effective|malformed|canonical") as context:
+                preflight.ensure()
+            self.assertNotIsInstance(context.exception, ValueError)
+
+    def test_opencode_preflight_rejects_malformed_selected_document_info(self):
+        malformed_infos = (
+            None,
+            [],
+            {"plugin": "opencode-auto-permissions"},
+            {"plugin": ["opencode-auto-permissions"], "plugins": []},
+        )
+        for info in malformed_infos:
+            with self.subTest(info=info), tempfile.TemporaryDirectory() as directory:
+                root = self._repo(Path(directory), worktree_ids=())
+                effective = json.dumps([{
+                    "path": str(root / "opencode.json"),
+                    "info": info,
+                }])
+                preflight = build.OpenCodePreflight(
+                    root / "opencode.json",
+                    runner=lambda argv, value=effective, **kwargs: value,
+                    repository_root=root,
+                )
+                with self.assertRaisesRegex(RuntimeError, "effective|plugin|malformed"):
+                    preflight.ensure()
+
+    def test_opencode_preflight_accepts_singular_and_plural_effective_plugin_keys(self):
+        for key in ("plugin", "plugins"):
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
+                root = self._repo(Path(directory), worktree_ids=())
+                effective = json.dumps([{
+                    "path": str(root / "opencode.json"),
+                    "info": {key: ["opencode-auto-permissions"]},
+                }])
+                preflight = build.OpenCodePreflight(
+                    root / "opencode.json",
+                    runner=lambda argv, value=effective, **kwargs: value,
+                    repository_root=root,
+                )
+                preflight.ensure()
+
+    def test_opencode_preflight_rejects_both_effective_plugin_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repo(Path(directory), worktree_ids=())
+            effective = json.dumps([{
+                "path": str(root / "opencode.json"),
+                "info": {
+                    "plugin": ["opencode-auto-permissions"],
+                    "plugins": ["opencode-auto-permissions"],
+                },
+            }])
+            preflight = build.OpenCodePreflight(
+                root / "opencode.json",
+                runner=lambda argv, **kwargs: effective,
+                repository_root=root,
+            )
+            with self.assertRaisesRegex(RuntimeError, "effective|plugin|malformed"):
+                preflight.ensure()
+
+    def test_opencode_preflight_committed_config_requires_singular_plugin_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repo(Path(directory), worktree_ids=())
+            (root / "opencode.json").write_text('{"plugins":["opencode-auto-permissions"]}\n')
+            subprocess.run(["git", "-C", str(root), "add", "opencode.json"], check=True)
+            subprocess.run(["git", "-C", str(root), "commit", "-qm", "use plural plugin key"], check=True)
+            subprocess.run(["git", "-C", str(root), "update-ref", "refs/remotes/origin/main", "HEAD"], check=True)
+            preflight = build.OpenCodePreflight(
+                root / "opencode.json",
+                runner=lambda argv, **kwargs: '{"plugin":["opencode-auto-permissions"]}',
+                repository_root=root,
+            )
+            with self.assertRaisesRegex(RuntimeError, "plugin|array|strings|install"):
+                preflight.ensure()
+
+    def test_opencode_preflight_does_not_accept_unrelated_global_document(self):
+        """A plugin in a global document cannot stand in for the project config."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = self._repo(Path(directory), worktree_ids=())
+            effective = json.dumps([
+                {
+                    "path": str(root / ".config/opencode/opencode.json"),
+                    "info": {"plugins": ["opencode-auto-permissions"]},
+                },
+                {
+                    "path": str(root / "other-project/opencode.json"),
+                    "info": {"plugins": ["opencode-auto-permissions"]},
+                },
+            ])
+            preflight = build.OpenCodePreflight(
+                root / "opencode.json",
+                runner=lambda argv, **kwargs: effective,
+                repository_root=root,
+            )
+            with self.assertRaisesRegex(RuntimeError, "effective|project|plugin"):
+                preflight.ensure()
+
     def test_opencode_preflight_rejects_malformed_committed_plugin_shapes(self):
         """BT018-034-001: committed plugin must be an array of strings."""
         malformed_values = (
