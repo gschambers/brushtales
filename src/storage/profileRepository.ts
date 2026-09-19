@@ -14,6 +14,7 @@ export interface ProfileRepository {
   list(): Promise<Profile[]>
   create(input: CreateProfileInput): Promise<Profile>
   get(id: string): Promise<Profile | null>
+  updateAgeBand(id: string, ageBand: AgeBand): Promise<void>
   delete(id: string): Promise<void>
 }
 
@@ -75,6 +76,14 @@ export function createProfileRepository(database: DatabasePort): ProfileReposito
         [id],
       )
       return row ? toProfile(row) : null
+    },
+
+    async updateAgeBand(id, ageBand) {
+      if (!ageBands.has(ageBand)) throw new Error('Profile age band is invalid')
+      await database.runAsync(
+        'UPDATE profiles SET age_band = ?, updated_at = ? WHERE id = ?',
+        [ageBand, new Date().toISOString(), id],
+      )
     },
 
     async delete(id) {

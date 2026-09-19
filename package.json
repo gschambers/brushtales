@@ -9,6 +9,7 @@
     "expo-audio": "~57.0.5",
     "expo-dev-client": "~57.0.19",
     "expo-keep-awake": "~57.0.2",
+    "expo-notifications": "~57.0.20",
     "expo-router": "~57.0.22",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
@@ -38,7 +39,9 @@
     "lint": "eslint .",
     "test": "jest",
     "test:watch": "jest --watch",
-    "validate:content": "tsx tools/validate-story.ts"
+    "validate:content": "tsx tools/validate-story.ts",
+    "validate:safety": "tsx tools/check-safety-copy.ts",
+    "ci": "npm run lint && npm run typecheck && npm test -- --runInBand && npm run validate:content && npm run validate:safety"
   },
   "private": true
 }

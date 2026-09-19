@@ -165,7 +165,7 @@ export function SessionScreen({
           )}
         </>
       )}
-      <Pressable accessibilityRole="button" onPress={() => void engine.pause().then(() => setSnapshot(engine.snapshot()))} style={styles.secondaryButton}>
+      <Pressable accessibilityLabel="Pause adventure" accessibilityRole="button" onPress={() => void engine.pause().then(() => setSnapshot(engine.snapshot()))} style={styles.secondaryButton}>
         <Text>Pause</Text>
       </Pressable>
     </View>

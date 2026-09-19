@@ -11,7 +11,7 @@ class MemoryDatabase implements DatabasePort {
   async runAsync(sql: string, params: readonly unknown[] = []) {
     if (sql.includes('INSERT INTO profiles')) {
       const [id, nickname, ageBand, avatarKey, createdAt, updatedAt] = params
-      this.profiles.push({ id, nickname, ageBand, avatarKey, createdAt, updatedAt })
+      this.profiles.push({ id, nickname, age_band: ageBand, avatar_key: avatarKey, created_at: createdAt, updated_at: updatedAt })
     } else if (sql.includes('INSERT INTO session_summaries')) {
       const [, profileId, storyId, completed, completedDurationMs, engagementBand, confidence, interrupted] = params
       this.summaries.push({
@@ -31,6 +31,13 @@ class MemoryDatabase implements DatabasePort {
     } else if (sql.includes('DELETE FROM session_summaries')) {
       const [profileId] = params
       this.summaries = this.summaries.filter((summary) => summary.profileId !== profileId)
+    } else if (sql.includes('UPDATE profiles')) {
+      const [ageBand, updatedAt, id] = params
+      const profile = this.profiles.find((candidate) => candidate.id === id)
+      if (profile) {
+        profile.age_band = ageBand
+        profile.updated_at = updatedAt
+      }
     }
     return { changes: 1, lastInsertRowId: 1 }
   }
@@ -98,5 +105,14 @@ describe('local profile repositories', () => {
     await expect(repo.create({ nickname: '', ageBand: '4-5' })).rejects.toThrow('nickname')
     await expect(repo.create({ nickname: 'A'.repeat(41), ageBand: '4-5' })).rejects.toThrow('nickname')
     await expect(repo.create({ nickname: 'A', ageBand: '10-11' as '4-5' })).rejects.toThrow('age band')
+  })
+
+  it('updates a profile age band locally', async () => {
+    const repo = createProfileRepository(new MemoryDatabase())
+    const profile = await repo.create({ nickname: 'A', ageBand: '4-5' })
+
+    await repo.updateAgeBand(profile.id, '8-9')
+
+    await expect(repo.get(profile.id)).resolves.toMatchObject({ ageBand: '8-9' })
   })
 })
