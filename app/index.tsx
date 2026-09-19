@@ -1,4 +1,4 @@
-import { Link } from 'expo-router'
+import { Link, router } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
@@ -40,7 +40,7 @@ export default function HomeScreen() {
           accessibilityRole="button"
           key={profile.id}
           style={styles.profile}
-          onPress={() => undefined}
+          onPress={() => router.push(`/stories?profileId=${encodeURIComponent(profile.id)}`)}
         >
           <Text style={styles.avatar} accessibilityLabel={`${profile.avatarKey} avatar`}>
             ★
