@@ -16,6 +16,12 @@ export interface MonotonicClock {
   now(): number
 }
 
+export class SystemMonotonicClock implements MonotonicClock {
+  now(): number {
+    return globalThis.performance.now()
+  }
+}
+
 export interface SessionInput {
   profileId: string
   storyId: string

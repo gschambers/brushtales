@@ -10,7 +10,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "The camera helps estimate brushing-like movement. It does not inspect dental health."
-      }
+      },
+      "bundleIdentifier": "com.anonymous.brushtales"
     },
     "android": {
       "permissions": ["android.permission.CAMERA"],
@@ -20,7 +21,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.brushtales"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,7 +32,15 @@
       "expo-router",
       "expo-status-bar",
       "expo-sqlite",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
     ]
   }
 }
