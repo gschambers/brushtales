@@ -1,6 +1,6 @@
 # 017 — Streamline the local build workflow
 
-- **Status:** in_progress
+- **Status:** done
 - **Priority:** high
 - **Summary:** Provide one local build command that provisions Herdr and context-aware OpenCode permissions.
 - **Labels:** tooling, orchestration

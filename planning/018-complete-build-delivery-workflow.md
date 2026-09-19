@@ -1,6 +1,6 @@
 # 018 — Complete the delegated build delivery workflow
 
-- **Status:** todo
+- **Status:** done
 - **Priority:** high
 - **Summary:** Make the local build command hand off to the complete safe /build workflow.
 - **Labels:** tooling, orchestration, workflow, safety
