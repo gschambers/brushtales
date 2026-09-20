@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
-import { Camera, useCameraDevice } from 'react-native-vision-camera'
 
 import type { AgeBand } from '../../src/domain/profile/types'
 import type { StoryGraph, StoryState } from '../../src/domain/story/types'
@@ -17,6 +16,7 @@ import { NativeSensingAdapter } from '../../src/sensing/nativeSensingAdapter'
 import { openAppDatabase } from '../../src/storage/database'
 import { createProfileRepository } from '../../src/storage/profileRepository'
 import { createSessionRepository } from '../../src/storage/sessionRepository'
+import { CameraPreview } from '../../src/components/CameraPreview'
 
 const storyGraph = storyGraphJson as unknown as StoryGraph
 
@@ -74,7 +74,6 @@ export function SessionScreen({
     nodeId: storyGraph.startNodeId,
     choices: {},
   })
-  const cameraDevice = useCameraDevice('front')
   const node = storyGraph.nodes[storyState.nodeId]
 
   const finish = useCallback(async () => {
@@ -200,7 +199,7 @@ export function SessionScreen({
       {audioOnly ? <Text>Audio-only mode</Text> : null}
       {audioOnly ? <Text>The adventure can still continue</Text> : null}
       {wakeLockRevoked || snapshot.keepAwakeState === 'denied' || snapshot.keepAwakeState === 'revoked' ? <Text>Screen may dim</Text> : null}
-      {!audioOnly && cameraDevice ? <Camera device={cameraDevice} isActive={snapshot.status === 'running'} style={styles.camera} /> : null}
+      {!audioOnly ? <CameraPreview isActive={snapshot.status === 'running'} style={styles.camera} /> : null}
       <Text>{snapshot.sensingStatus === 'ready' ? 'Sensing ready' : 'Sensing is taking a break'}</Text>
       {node.type === 'choice' ? (
         <>

@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router'
 import { Text, View } from 'react-native'
 
-import { AppProviders } from '../src/app/AppProviders'
+import { AppProviders } from '../src/providers/AppProviders'
 
 export default function RootLayout() {
   return (
