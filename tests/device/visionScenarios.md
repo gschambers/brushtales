@@ -4,6 +4,10 @@ These are manual device checks, not automated tests. Record only derived values
 with caregiver consent; never save camera frames, face images, audio, or child
 identity data.
 
+The Sky Reef native vertical-slice sequence and portrait acceptance gates are
+listed in `tests/device/skyReefVerticalSlice.md`. This file remains the focused
+sensing/keep-awake failure matrix used by that checklist.
+
 ## Sensing scenarios
 
 - [ ] Portrait, normal lighting, ordinary toothbrush, child in frame.
