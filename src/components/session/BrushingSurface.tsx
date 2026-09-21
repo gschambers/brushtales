@@ -52,6 +52,7 @@ export function BrushingSurface({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
+        <Text style={styles.heading}>Brush session in progress</Text>
         <View testID="camera-preview" style={styles.cameraSlot}>
           <NativeCameraPreview isActive={showCamera && !paused} />
           {!showCamera && <Text style={styles.cameraFallback}>Camera helper resting</Text>}
@@ -87,6 +88,7 @@ export function BrushingSurface({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: sessionTheme.colors.paper },
   content: { flex: 1, paddingHorizontal: sessionTheme.spacing.page },
+  heading: { color: sessionTheme.colors.ink, fontSize: 24, fontWeight: '800' },
   cameraSlot: {
     minHeight: 170,
     alignItems: 'center',

@@ -1,7 +1,10 @@
 import { act, fireEvent, render } from '@testing-library/react-native'
 
+import { router } from 'expo-router'
 import { SessionScreen } from '../../app/session/[storyId]'
+import { DeterministicAudioPlayer } from '../../src/audio/deterministicAudioPlayer'
 import type { KeepAwakeController } from '../../src/platform/keepAwake'
+import { DeterministicSensingAdapter } from '../../src/sensing/deterministicSensingAdapter'
 
 const mockDatabase = {
   execAsync: jest.fn(async () => undefined),
@@ -10,26 +13,8 @@ const mockDatabase = {
   getAllAsync: jest.fn(async () => []),
 }
 
-jest.mock('../../src/platform/permissions', () => ({
-  requestCameraPermission: jest.fn(async () => 'denied'),
-}))
-
 jest.mock('../../src/storage/database', () => ({
   openAppDatabase: jest.fn(async () => mockDatabase),
-}))
-
-jest.mock('../../src/sensing/nativeSensingAdapter', () => ({
-  NativeSensingAdapter: class {
-    async start() {
-      return 'permissionDenied'
-    }
-    async stop() {}
-  },
-}))
-
-jest.mock('react-native-vision-camera', () => ({
-  Camera: () => null,
-  useCameraDevice: () => null,
 }))
 
 jest.mock('expo-router', () => ({
@@ -41,80 +26,111 @@ jest.mock('expo-audio', () => ({
   createAudioPlayer: jest.fn(() => ({ play: jest.fn(), pause: jest.fn(), replace: jest.fn(), remove: jest.fn() })),
 }))
 
+jest.mock('react-native-vision-camera', () => ({
+  Camera: () => null,
+  useCameraDevice: () => null,
+}))
+
+class TestClock {
+  timeMs = 0
+  now(): number { return this.timeMs }
+  advance(ms: number): void { this.timeMs += ms }
+}
+
+function createKeepAwake(state: 'active' | 'denied' = 'active') {
+  let revoked: (() => void) | null = null
+  const keepAwake: KeepAwakeController = {
+    acquire: jest.fn(async () => state),
+    release: jest.fn(async () => undefined),
+    onStateChange: (listener) => {
+      revoked = () => listener('revoked')
+      return () => { revoked = null }
+    },
+  }
+  return { keepAwake, revoke: () => revoked?.() }
+}
+
+function createFixture(keepAwake = createKeepAwake()) {
+  return {
+    audio: new DeterministicAudioPlayer(),
+    sensing: new DeterministicSensingAdapter(),
+    clock: new TestClock(),
+    keepAwake: keepAwake.keepAwake,
+  }
+}
+
+async function settle(): Promise<void> {
+  for (let index = 0; index < 12; index += 1) await Promise.resolve()
+}
+
 describe('SessionScreen', () => {
-  it('continues as audio-only when camera permission is denied', async () => {
-    const rendered = await render(<SessionScreen storyId="sky-reef" />)
-
-    await act(async () => {
-      fireEvent.press(rendered.getByRole('button', { name: 'Start adventure' }))
-    })
-
-    expect(await rendered.findByText('Audio-only mode')).toBeTruthy()
-    expect(rendered.getByText('The adventure can still continue')).toBeTruthy()
+  beforeEach(() => {
+    jest.useFakeTimers()
+    jest.clearAllMocks()
   })
 
-  it('reports a revoked wake lock without stopping the session', async () => {
-    let revoked: (() => void) | null = null
-    const keepAwake: KeepAwakeController = {
-      acquire: async () => 'active',
-      release: async () => undefined,
-      onStateChange: (listener) => {
-        revoked = () => listener('revoked')
-        return () => {
-          revoked = null
-        }
-      },
-    }
-    const rendered = await render(<SessionScreen storyId="sky-reef" keepAwake={keepAwake} />)
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('moves from the opening audiobook into brushing only after opening audio finishes', async () => {
+    const fixture = createFixture()
+    const rendered = await render(<SessionScreen storyId="sky-reef" {...fixture} />)
 
     await act(async () => {
-      fireEvent.press(rendered.getByRole('button', { name: 'Start adventure' }))
+      fireEvent.press(rendered.getByRole('button', { name: 'Begin story' }))
     })
-    expect(await rendered.findByText('Brush session in progress')).toBeTruthy()
-    expect(revoked).not.toBeNull()
+    expect(rendered.getByText('Act 1 · Opening audiobook')).toBeTruthy()
+
     await act(async () => {
-      revoked?.()
+      fixture.audio.finish()
+      await settle()
     })
 
-    expect(await rendered.findByText('Screen may dim')).toBeTruthy()
+    expect(rendered.getByRole('button', { name: 'Pause adventure' })).toBeTruthy()
+    expect(rendered.queryByRole('button', { name: 'Finish adventure' })).toBeNull()
+  })
+
+  it('keeps camera-unavailable brushing non-blocking and reports wake-lock denial', async () => {
+    const fixture = createFixture(createKeepAwake('denied'))
+    const rendered = await render(<SessionScreen storyId="sky-reef" {...fixture} />)
+
+    await act(async () => {
+      fireEvent.press(rendered.getByRole('button', { name: 'Begin story' }))
+      fixture.audio.finish()
+      await settle()
+    })
+
+    expect(rendered.getByText(/screen may dim/i)).toBeTruthy()
     expect(rendered.getByText('Brush session in progress')).toBeTruthy()
   })
 
-  it('shows the same non-blocking notice when wake lock acquisition is denied', async () => {
-    const keepAwake: KeepAwakeController = {
-      acquire: async () => 'denied',
-      release: async () => undefined,
-    }
-    const rendered = await render(<SessionScreen storyId="sky-reef" keepAwake={keepAwake} />)
+  it('enters closing automatically and persists one completed summary before navigation', async () => {
+    const fixture = createFixture()
+    const rendered = await render(<SessionScreen storyId="sky-reef" profileId="profile-1" {...fixture} />)
+
     await act(async () => {
-      fireEvent.press(rendered.getByRole('button', { name: 'Start adventure' }))
+      fireEvent.press(rendered.getByRole('button', { name: 'Begin story' }))
+      fixture.audio.finish()
+      await settle()
+    })
+    fixture.clock.advance(120_000)
+    await act(async () => {
+      jest.advanceTimersByTime(250)
+      await settle()
     })
 
-    expect(await rendered.findByText('Screen may dim')).toBeTruthy()
-    expect(rendered.getByText('Brush session in progress')).toBeTruthy()
-  })
-
-  it('progresses through authored choices and persists one completion summary', async () => {
-    const rendered = await render(<SessionScreen storyId="sky-reef" profileId="profile-1" />)
-    const press = async (name: string) => {
-      await act(async () => {
-        fireEvent.press(rendered.getByRole('button', { name }))
-      })
-    }
-
-    await press('Start adventure')
-    await press('Continue adventure')
-    expect(rendered.getByText('Which path should guide the sky-reef voyage?')).toBeTruthy()
-    await press('Follow the bubbles')
-    await press('Continue adventure')
-    await press('Ring the sky bell')
-    await press('Continue adventure')
-    await press('Share the treasure')
-    await press('Finish adventure')
+    expect(rendered.getByText('Act 3 · Closing audiobook')).toBeTruthy()
+    await act(async () => {
+      fixture.audio.finish()
+      await settle()
+    })
 
     expect(mockDatabase.runAsync).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO session_summaries'),
       expect.arrayContaining(['profile-1', 'sky-reef']),
     )
+    expect(router.replace).toHaveBeenCalledWith(expect.stringContaining('/complete/'))
+    expect(router.replace).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,24 +1,24 @@
 import { router, useLocalSearchParams } from 'expo-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AppState, View } from 'react-native'
 
 import type { AgeBand } from '../../src/domain/profile/types'
-import type { StoryGraph, StoryState } from '../../src/domain/story/types'
-import { advanceStory } from '../../src/domain/story/storyGraph'
-import storyGraphJson from '../../src/content/story/sky-reef.json'
+import { DeterministicAudioPlayer } from '../../src/audio/deterministicAudioPlayer'
 import { LocalAudioPlayer, type AudioPlayer } from '../../src/audio/audioPlayer'
-import { SessionEngine, SystemMonotonicClock, type SessionInput } from '../../src/domain/session/sessionEngine'
+import { SystemMonotonicClock, type MonotonicClock } from '../../src/domain/session/sessionEngine'
 import type { KeepAwakeController } from '../../src/platform/keepAwake'
 import { ExpoKeepAwakeController } from '../../src/platform/keepAwake'
-import { requestCameraPermission } from '../../src/platform/permissions'
 import type { SensingAdapter } from '../../src/sensing/sensingAdapter'
+import { DeterministicSensingAdapter } from '../../src/sensing/deterministicSensingAdapter'
 import { NativeSensingAdapter } from '../../src/sensing/nativeSensingAdapter'
 import { openAppDatabase } from '../../src/storage/database'
 import { createProfileRepository } from '../../src/storage/profileRepository'
 import { createSessionRepository } from '../../src/storage/sessionRepository'
-import { CameraPreview } from '../../src/components/CameraPreview'
+import { ActScreen } from '../../src/components/session/ActScreen'
+import { BrushingSurface } from '../../src/components/session/BrushingSurface'
+import { useStorySessionController } from '../../src/session/useStorySessionController'
 
-const storyGraph = storyGraphJson as unknown as StoryGraph
+const durationMs = 120_000
 
 export interface SessionScreenProps {
   storyId: string
@@ -27,9 +27,8 @@ export interface SessionScreenProps {
   sensing?: SensingAdapter
   audio?: AudioPlayer
   keepAwake?: KeepAwakeController
+  clock?: MonotonicClock
 }
-
-const durationMs = 120_000
 
 export default function SessionRoute() {
   const { storyId, profileId } = useLocalSearchParams<{ storyId: string; profileId?: string }>()
@@ -51,197 +50,106 @@ export default function SessionRoute() {
 export function SessionScreen({
   storyId,
   profileId,
-  ageBand = '6-7',
   sensing: sensingOverride,
   audio: audioOverride,
   keepAwake: keepAwakeOverride,
+  clock: clockOverride,
 }: SessionScreenProps) {
-  const sensing = useMemo(() => sensingOverride ?? new NativeSensingAdapter(), [sensingOverride])
-  const audio = useMemo(() => audioOverride ?? new LocalAudioPlayer(), [audioOverride])
-  const keepAwake = useMemo(() => keepAwakeOverride ?? new ExpoKeepAwakeController(), [keepAwakeOverride])
-  const engine = useMemo(
-    () => new SessionEngine({ clock: new SystemMonotonicClock(), sensing, audio, keepAwake }),
-    [audio, keepAwake, sensing],
+  const sensing = useMemo(
+    () => sensingOverride ?? (__DEV__ ? new DeterministicSensingAdapter() : new NativeSensingAdapter()),
+    [sensingOverride],
   )
-  const [started, setStarted] = useState(false)
-  const [audioOnly, setAudioOnly] = useState(false)
-  const [wakeLockRevoked, setWakeLockRevoked] = useState(false)
-  const [snapshot, setSnapshot] = useState(engine.snapshot())
-  const startedRef = useRef(false)
-  const completionStartedRef = useRef(false)
-  const [storyState, setStoryState] = useState<StoryState>({
+  const audio = useMemo(
+    () => audioOverride ?? (__DEV__ ? new DeterministicAudioPlayer() : new LocalAudioPlayer()),
+    [audioOverride],
+  )
+  const keepAwake = useMemo(
+    () => keepAwakeOverride ?? new ExpoKeepAwakeController(),
+    [keepAwakeOverride],
+  )
+  const clock = useMemo(() => clockOverride ?? new SystemMonotonicClock(), [clockOverride])
+  const dependencies = useMemo(() => ({
+    audio,
+    sensing,
+    keepAwake,
+    clock,
+    profileId: profileId ?? 'local',
     storyId,
-    nodeId: storyGraph.startNodeId,
-    choices: {},
-  })
-  const node = storyGraph.nodes[storyState.nodeId]
-
-  const finish = useCallback(async () => {
-    const result = await engine.stop()
-    if (profileId) {
-      const database = await openAppDatabase()
-      await createSessionRepository(database).saveSummary(profileId, {
-        profileId,
-        storyId,
-        completed: result.completedDurationMs >= durationMs,
-        completedDurationMs: result.completedDurationMs,
-        engagementBand: result.engagementBand,
-        confidence: result.confidence,
-        interrupted: result.interrupted,
-      })
-    }
-    router.replace(`/complete/${Date.now().toString(36)}?completed=${result.completedDurationMs >= durationMs}`)
-  }, [engine, profileId, storyId])
+    durationMs,
+    openingAssetId: 'intro',
+    brushingAssetId: 'session-fallback',
+    closingAssetId: 'closing',
+  }), [audio, clock, keepAwake, profileId, sensing, storyId])
+  const { controller, state, snapshot, beginStory, pauseOrResume } = useStorySessionController(dependencies)
+  const persistedRef = useRef(false)
 
   useEffect(() => {
-    const unsubscribe = keepAwake.onStateChange?.((state) => {
-      if (state === 'revoked') setWakeLockRevoked(true)
-    })
-    return () => unsubscribe?.()
-  }, [keepAwake])
-
-  useEffect(() => {
-    if (!started) return
-    const interval = setInterval(() => {
-      const nextSnapshot = engine.snapshot()
-      setSnapshot(nextSnapshot)
-      if (nextSnapshot.sensingStatus === 'unsupported' || nextSnapshot.sensingStatus === 'permissionDenied' || nextSnapshot.sensingStatus === 'processingUnavailable') {
-        setAudioOnly(true)
+    if (state.phase !== 'complete' || persistedRef.current) return
+    persistedRef.current = true
+    void (async () => {
+      const result = await controller.stop()
+      if (profileId) {
+        const database = await openAppDatabase()
+        await createSessionRepository(database).saveSummary(profileId, {
+          profileId,
+          storyId,
+          completed: result.completedDurationMs >= durationMs,
+          completedDurationMs: result.completedDurationMs,
+          engagementBand: result.engagementBand,
+          confidence: result.confidence,
+          interrupted: result.interrupted,
+        })
       }
-      if (nextSnapshot.status === 'complete' && !completionStartedRef.current) {
-        completionStartedRef.current = true
-        void finish()
-      }
-    }, 250)
-    return () => clearInterval(interval)
-  }, [engine, finish, started])
-
-  useEffect(() => {
-    startedRef.current = started
-  }, [started])
-
-  useEffect(() => () => {
-    if (startedRef.current) void engine.stop()
-  }, [engine])
+      router.replace(`/complete/${Date.now().toString(36)}?completed=${result.completedDurationMs >= durationMs}`)
+    })().catch(() => router.replace(`/complete/${Date.now().toString(36)}?completed=false`))
+  }, [controller, profileId, state.phase, storyId])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active' && engine.snapshot().status === 'running') {
-        void engine.pause().then(() => setSnapshot(engine.snapshot()))
-      }
+      if (nextState !== 'active' && controller.snapshot().status === 'running') void controller.pauseOrResume()
+      if (nextState === 'active' && controller.snapshot().status === 'paused') void controller.pauseOrResume()
     })
     return () => subscription.remove()
-  }, [engine])
+  }, [controller])
 
-  async function startAdventure() {
-    let permission: Awaited<ReturnType<typeof requestCameraPermission>> = 'denied'
-    try {
-      permission = await requestCameraPermission()
-    } catch {
-      permission = 'denied'
-    }
-    setAudioOnly(permission !== 'granted')
-    const input: SessionInput = { profileId: profileId ?? 'local', storyId, durationMs }
-    await playAsset(node.type === 'choice' ? node.promptAssetId : node.assetId)
-    await engine.start(input)
-    setStarted(true)
-    setSnapshot(engine.snapshot())
+  async function exitAdventure(): Promise<void> {
+    await controller.stop()
+    router.replace('/stories')
   }
 
-  async function advance() {
-    if (!started || node.type === 'ending') return
-    const nextState = node.type === 'narration'
-      ? advanceStory(storyGraph, storyState, { type: 'continue' })
-      : advanceStory(storyGraph, storyState, { type: 'choose', optionId: storyState.choices[storyState.nodeId] ?? node.options[0].id, sessionBand: engine.currentEngagementBand() })
-    setStoryState(nextState)
-    const nextNode = storyGraph.nodes[nextState.nodeId]
-    await playAsset(nextNode.type === 'choice' ? nextNode.promptAssetId : nextNode.assetId)
-  }
-
-  async function choose(optionId: string) {
-    const currentNode = storyGraph.nodes[storyState.nodeId]
-    if (currentNode.type !== 'choice') return
-    const selectedOption = currentNode.options.find((option) => option.id === optionId)
-    if (!selectedOption) return
-    await playAsset(selectedOption.assetId)
-    const nextState = advanceStory(storyGraph, storyState, { type: 'choose', optionId, sessionBand: engine.currentEngagementBand() })
-    setStoryState(nextState)
-    const nextNode = storyGraph.nodes[nextState.nodeId]
-    await playAsset(nextNode.type === 'choice' ? nextNode.promptAssetId : nextNode.assetId)
-  }
-
-  async function playAsset(assetId: string) {
-    try {
-      await audio.load(assetId)
-      await audio.play()
-    } catch {
-      setAudioOnly(true)
-    }
-  }
-
-  if (!started) {
+  if (state.phase === 'opening') {
     return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Sky Reef is ready</Text>
-        <Text>Keep brushing gently while the adventure unfolds.</Text>
-        <Text>A caregiver remains responsible for supervision. This is a habit-support adventure, not a substitute for dental care.</Text>
-        <Pressable accessibilityRole="button" onPress={() => void startAdventure()} style={styles.primaryButton}>
-          <Text>Start adventure</Text>
-        </Pressable>
-      </View>
+      <ActScreen
+        act="opening"
+        title="The Sky Reef is waking."
+        body="The opening story leads us toward a bright path through the clouds. When you’re ready, begin the story and we’ll brush together."
+        primaryLabel="Begin story"
+        onPrimaryPress={() => void beginStory()}
+      />
     )
   }
 
+  if (state.phase === 'closing') {
+    return (
+      <ActScreen
+        act="closing"
+        title="The crew found the way home."
+        body="Listen to the chapter’s gentle ending."
+        primaryLabel="Finish chapter"
+        onPrimaryPress={() => void controller.stop()}
+      />
+    )
+  }
+
+  if (state.phase === 'complete') return <View />
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Brush session in progress</Text>
-      <Text>{Math.ceil(snapshot.remainingMs / 1000)} seconds left</Text>
-      {audioOnly ? <Text>Audio-only mode</Text> : null}
-      {audioOnly ? <Text>The adventure can still continue</Text> : null}
-      {wakeLockRevoked || snapshot.keepAwakeState === 'denied' || snapshot.keepAwakeState === 'revoked' ? <Text>Screen may dim</Text> : null}
-      {!audioOnly ? <CameraPreview isActive={snapshot.status === 'running'} style={styles.camera} /> : null}
-      <Text>{snapshot.sensingStatus === 'ready' ? 'Sensing ready' : 'Sensing is taking a break'}</Text>
-      {node.type === 'choice' ? (
-        <>
-          <Text style={styles.prompt}>{node.prompt[ageBand]}</Text>
-          {node.options.map((option) => (
-            <Pressable accessibilityRole="button" key={option.id} onPress={() => void choose(option.id)} style={styles.choiceButton}>
-              <Text>{option.label[ageBand]}</Text>
-            </Pressable>
-          ))}
-        </>
-      ) : (
-        <>
-          {node.type === 'narration' ? <Text>Listen for the next part of the story.</Text> : <Text>{node.summaryKey}</Text>}
-          {node.type === 'narration' ? (
-            <Pressable accessibilityRole="button" onPress={() => void advance()} style={styles.choiceButton}>
-              <Text>Continue adventure</Text>
-            </Pressable>
-          ) : (
-            <Pressable accessibilityRole="button" onPress={() => void finish()} style={styles.primaryButton}>
-              <Text>Finish adventure</Text>
-            </Pressable>
-          )}
-        </>
-      )}
-      <Pressable
-        accessibilityLabel={snapshot.status === 'paused' ? 'Resume adventure' : 'Pause adventure'}
-        accessibilityRole="button"
-        onPress={() => void (snapshot.status === 'paused' ? engine.resume() : engine.pause()).then(() => setSnapshot(engine.snapshot()))}
-        style={styles.secondaryButton}
-      >
-        <Text>{snapshot.status === 'paused' ? 'Resume' : 'Pause'}</Text>
-      </Pressable>
-    </View>
+    <BrushingSurface
+      snapshot={snapshot}
+      viewState={state}
+      onPauseResume={() => void pauseOrResume()}
+      onExit={() => void exitAdventure()}
+      showCamera={state.sensingStatus === 'ready'}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, gap: 16, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 28, fontWeight: '700' },
-  prompt: { fontSize: 21, fontWeight: '600' },
-  camera: { borderRadius: 16, height: 180, width: '100%' },
-  primaryButton: { alignItems: 'center', borderRadius: 14, borderWidth: 2, padding: 16 },
-  choiceButton: { alignItems: 'center', borderRadius: 14, borderWidth: 1, padding: 16 },
-  secondaryButton: { alignItems: 'center', borderRadius: 14, borderWidth: 1, padding: 12 },
-})
