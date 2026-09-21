@@ -1,6 +1,7 @@
 import type { AudioPlayerEvent } from '../../src/audio/audioPlayer'
 import type { SensingSignal } from '../../src/domain/session/types'
 import { DeterministicAudioPlayer } from '../../src/audio/deterministicAudioPlayer'
+import { DevelopmentAudioPlayer } from '../../src/audio/developmentAudioPlayer'
 import { DeterministicSensingAdapter } from '../../src/sensing/deterministicSensingAdapter'
 
 describe('deterministic session dependencies', () => {
@@ -26,6 +27,20 @@ describe('deterministic session dependencies', () => {
     audio.interrupt()
 
     expect(events).toEqual(['interruption', 'interruption'])
+  })
+
+  it('automatically finishes authored audiobook clips for local development', async () => {
+    jest.useFakeTimers()
+    const audio = new DevelopmentAudioPlayer(500)
+    const events: AudioPlayerEvent[] = []
+    audio.onStateChange((event) => events.push(event))
+
+    await audio.load('intro')
+    await audio.play()
+    jest.advanceTimersByTime(500)
+
+    expect(events).toEqual(['ready', 'playing', 'finished'])
+    jest.useRealTimers()
   })
 
   it('forwards sensing signals only while running', async () => {

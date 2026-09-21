@@ -7,6 +7,11 @@ import { ZoneAtlas } from '../../src/components/session/ZoneAtlas'
 import type { SessionSnapshot } from '../../src/domain/session/types'
 import type { StorySessionViewState } from '../../src/session/storySessionTypes'
 
+jest.mock('react-native-vision-camera', () => ({
+  Camera: () => null,
+  useCameraDevice: () => null,
+}))
+
 const snapshot: SessionSnapshot = {
   status: 'running',
   elapsedMs: 12_000,
@@ -104,5 +109,35 @@ describe('native session visuals', () => {
     expect(rendered.getByTestId('audio-ring')).toBeTruthy()
     expect(rendered.getByRole('button', { name: 'Pause adventure' })).toBeTruthy()
     expect(rendered.queryByRole('button', { name: 'Finish adventure' })).toBeNull()
+  })
+
+  it('keeps the unavailable-sensing composition and explains the fallback', async () => {
+    const rendered = await render(
+      <BrushingSurface
+        snapshot={{ ...snapshot, sensingStatus: 'permissionDenied' }}
+        viewState={{ ...viewState, sensingStatus: 'permissionDenied' }}
+        onPauseResume={jest.fn()}
+        onExit={jest.fn()}
+        showCamera
+        reducedMotion
+      />,
+    )
+
+    expect(rendered.getByTestId('camera-preview')).toBeTruthy()
+    expect(rendered.getByText(/camera helper is unavailable/i)).toBeTruthy()
+  })
+
+  it('clamps the lower-right brush marker inside a narrow atlas', async () => {
+    const upper = await render(<ZoneAtlas zoneIndex={2} width={200} />)
+    const lower = await render(<ZoneAtlas zoneIndex={11} width={200} />)
+    const upperMarker = upper.getByTestId('active-group-right')
+    const lowerMarker = lower.getByTestId('active-group-right-lower')
+    const upperStyle = Array.isArray(upperMarker.props.style) ? Object.assign({}, ...upperMarker.props.style) : upperMarker.props.style
+    const lowerStyle = Array.isArray(lowerMarker.props.style) ? Object.assign({}, ...lowerMarker.props.style) : lowerMarker.props.style
+
+    expect(upperStyle.left).toBeLessThanOrEqual(68)
+    expect(upperStyle.left).toBeGreaterThanOrEqual(0)
+    expect(lowerStyle.left).toBeLessThanOrEqual(68)
+    expect(lowerStyle.left).toBeGreaterThanOrEqual(0)
   })
 })

@@ -44,7 +44,8 @@ function ToothRow({
   const isActiveRow = arch === activeArch
   const rowGroupName = groupNames[activeGroup]
   const brushPosition = arch === 'lower' ? 2 - activeGroup : activeGroup
-  const brushLeft = Math.max(0, Math.min(width - 96, (width * [0.167, 0.5, 0.833][brushPosition]) - 48))
+  const brushBoxWidth = 132
+  const brushLeft = Math.max(0, Math.min(width - brushBoxWidth, (width * [0.167, 0.5, 0.833][brushPosition]) - brushBoxWidth / 2))
 
   return (
     <View style={[styles.row, arch === 'lower' && styles.lowerRow]}>
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
   groupMarker: {
     position: 'absolute',
     top: -16,
-    width: 96,
+    width: 132,
     height: 72,
     alignItems: 'center',
     justifyContent: 'center',

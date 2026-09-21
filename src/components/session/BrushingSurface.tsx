@@ -28,7 +28,7 @@ function noticeForState(viewState: StorySessionViewState, showCamera: boolean): 
   if (!showCamera) return 'The camera helper is resting. We can keep exploring together.'
   if (viewState.sensingStatus === 'noFace') return 'The camera is taking a moment. Keep exploring when you are ready.'
   if (viewState.sensingStatus === 'lowLight') return 'A little more light may help the camera helper.'
-  if (viewState.sensingStatus === 'permissionDenied' || viewState.sensingStatus === 'unsupported') {
+  if (viewState.sensingStatus === 'permissionDenied' || viewState.sensingStatus === 'unsupported' || viewState.sensingStatus === 'processingUnavailable') {
     return 'The camera helper is unavailable, so the adventure will continue by sound.'
   }
   if (viewState.keepAwakeState === 'denied' || viewState.keepAwakeState === 'revoked') {

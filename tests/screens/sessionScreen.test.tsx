@@ -1,4 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native'
+import { AppState, type AppStateStatus } from 'react-native'
 
 import { router } from 'expo-router'
 import { SessionScreen } from '../../app/session/[storyId]'
@@ -81,6 +82,7 @@ describe('SessionScreen', () => {
       fireEvent.press(rendered.getByRole('button', { name: 'Begin story' }))
     })
     expect(rendered.getByText('Act 1 · Opening audiobook')).toBeTruthy()
+    expect(rendered.getByText(/grown-up stays nearby/i)).toBeTruthy()
 
     await act(async () => {
       fixture.audio.finish()
@@ -132,5 +134,32 @@ describe('SessionScreen', () => {
     )
     expect(router.replace).toHaveBeenCalledWith(expect.stringContaining('/complete/'))
     expect(router.replace).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not resume an intentional child pause when the app returns to foreground', async () => {
+    let appStateListener: ((state: AppStateStatus) => void) | null = null
+    const appStateSpy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, listener) => {
+      appStateListener = listener
+      return { remove: jest.fn() }
+    })
+    const fixture = createFixture()
+    const rendered = await render(<SessionScreen storyId="sky-reef" {...fixture} />)
+
+    await act(async () => {
+      fireEvent.press(rendered.getByRole('button', { name: 'Begin story' }))
+      fixture.audio.finish()
+      await settle()
+    })
+    await act(async () => {
+      fireEvent.press(rendered.getByRole('button', { name: 'Pause adventure' }))
+      await settle()
+    })
+    await act(async () => {
+      appStateListener?.('active')
+      await settle()
+    })
+
+    expect(rendered.getByRole('button', { name: 'Resume adventure' })).toBeTruthy()
+    appStateSpy.mockRestore()
   })
 })

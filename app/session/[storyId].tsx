@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, View } from 'react-native'
 
 import type { AgeBand } from '../../src/domain/profile/types'
-import { DeterministicAudioPlayer } from '../../src/audio/deterministicAudioPlayer'
+import { DevelopmentAudioPlayer } from '../../src/audio/developmentAudioPlayer'
 import { LocalAudioPlayer, type AudioPlayer } from '../../src/audio/audioPlayer'
 import { SystemMonotonicClock, type MonotonicClock } from '../../src/domain/session/sessionEngine'
 import type { KeepAwakeController } from '../../src/platform/keepAwake'
@@ -60,7 +60,7 @@ export function SessionScreen({
     [sensingOverride],
   )
   const audio = useMemo(
-    () => audioOverride ?? (__DEV__ ? new DeterministicAudioPlayer() : new LocalAudioPlayer()),
+    () => audioOverride ?? (__DEV__ ? new DevelopmentAudioPlayer() : new LocalAudioPlayer()),
     [audioOverride],
   )
   const keepAwake = useMemo(
@@ -82,6 +82,7 @@ export function SessionScreen({
   }), [audio, clock, keepAwake, profileId, sensing, storyId])
   const { controller, state, snapshot, beginStory, pauseOrResume } = useStorySessionController(dependencies)
   const persistedRef = useRef(false)
+  const pausedForBackgroundRef = useRef(false)
 
   useEffect(() => {
     if (state.phase !== 'complete' || persistedRef.current) return
@@ -106,8 +107,14 @@ export function SessionScreen({
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active' && controller.snapshot().status === 'running') void controller.pauseOrResume()
-      if (nextState === 'active' && controller.snapshot().status === 'paused') void controller.pauseOrResume()
+      if (nextState !== 'active' && controller.snapshot().status === 'running') {
+        pausedForBackgroundRef.current = true
+        void controller.pauseOrResume()
+      }
+      if (nextState === 'active' && pausedForBackgroundRef.current && controller.snapshot().status === 'paused') {
+        pausedForBackgroundRef.current = false
+        void controller.pauseOrResume()
+      }
     })
     return () => subscription.remove()
   }, [controller])
@@ -122,7 +129,7 @@ export function SessionScreen({
       <ActScreen
         act="opening"
         title="The Sky Reef is waking."
-        body="The opening story leads us toward a bright path through the clouds. When you’re ready, begin the story and we’ll brush together."
+        body="The opening story leads us toward a bright path through the clouds. When you’re ready, begin the story and we’ll brush together. A grown-up stays nearby to help with safe brushing."
         primaryLabel="Begin story"
         onPrimaryPress={() => void beginStory()}
       />
@@ -136,7 +143,7 @@ export function SessionScreen({
         title="The crew found the way home."
         body="Listen to the chapter’s gentle ending."
         primaryLabel="Finish chapter"
-        onPrimaryPress={() => void controller.stop()}
+        onPrimaryPress={() => void controller.completeClosing()}
       />
     )
   }

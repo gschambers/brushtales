@@ -107,6 +107,20 @@ describe('story session controller', () => {
     expect(controller.state().phase).toBe('complete')
   })
 
+  it('lets the closing action complete the chapter as a fallback', async () => {
+    const { audio, clock, controller } = createFixture()
+
+    await controller.beginStory()
+    audio.finish()
+    await settle()
+    clock.advance(120_000)
+    controller.refresh()
+    await settle()
+    await controller.completeClosing()
+
+    expect(controller.state().phase).toBe('complete')
+  })
+
   it('preserves the session through pause and resume', async () => {
     const { audio, controller } = createFixture()
 
@@ -134,15 +148,47 @@ describe('story session controller', () => {
   })
 
   it('keeps an audio interruption recoverable', async () => {
-    const { audio, controller } = createFixture()
+    const { audio, clock, controller } = createFixture()
 
     await controller.beginStory()
     audio.finish()
     await settle()
+    clock.advance(1_000)
     audio.interrupt()
+    await settle()
 
     expect(controller.state().phase).toBe('brushing')
     expect(controller.state().statusNotice).toMatch(/audio/i)
+    expect(controller.snapshot().status).toBe('paused')
+    expect(controller.snapshot().remainingMs).toBe(119_000)
+  })
+
+  it.each(['permissionDenied', 'lowLight', 'processingUnavailable'] as const)('maps %s sensing failure to a calm notice', async (status) => {
+    const audio = new DeterministicAudioPlayer()
+    const sensing = {
+      start: async (listener: (signal: { status: typeof status; motionScore: number; coveragePrompt: null; confidence: 'low' }) => void) => {
+        listener({ status, motionScore: 0, coveragePrompt: null, confidence: 'low' })
+        return status
+      },
+      stop: async () => undefined,
+    }
+    const failureController = createStorySessionController({
+      audio,
+      sensing,
+      keepAwake: createKeepAwake().keepAwake,
+      clock: new TestClock(),
+      profileId: 'profile-1',
+      storyId: 'sky-reef',
+      durationMs: 120_000,
+      openingAssetId: 'intro',
+      brushingAssetId: 'session-fallback',
+      closingAssetId: 'closing',
+    })
+    await failureController.beginStory()
+    audio.finish()
+    await settle()
+
+    expect(failureController.state().statusNotice).toBeTruthy()
   })
 
   it('stops and releases resources once when cleanup is repeated', async () => {

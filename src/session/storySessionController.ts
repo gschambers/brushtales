@@ -24,6 +24,7 @@ export interface StorySessionController {
   refresh(): void
   beginStory(): Promise<void>
   pauseOrResume(): Promise<void>
+  completeClosing(): Promise<void>
   stop(): Promise<SessionResult>
   subscribe(listener: () => void): () => void
 }
@@ -98,6 +99,13 @@ export class StorySessionControllerImpl implements StorySessionController {
     this.emit()
   }
 
+  async completeClosing(): Promise<void> {
+    if (this.phase !== 'closing' || this.stopping) return
+    this.phase = 'complete'
+    this.emit()
+    await this.dependencies.audio.stop()
+  }
+
   async stop(): Promise<SessionResult> {
     if (this.cleanupPromise) return this.cleanupPromise
     this.stopping = true
@@ -138,6 +146,7 @@ export class StorySessionControllerImpl implements StorySessionController {
     if (event === 'interruption') {
       this.audioState = 'paused'
       this.statusNotice = 'The story audio paused for a moment. We can keep exploring.'
+      void this.engine.pause().then(() => this.emit())
     }
     this.emit()
     if (event !== 'finished') return
@@ -209,7 +218,7 @@ export class StorySessionControllerImpl implements StorySessionController {
   private noticeFor(snapshot: SessionSnapshot): string | null {
     if (snapshot.sensingStatus === 'noFace') return 'The camera is taking a moment. Keep exploring when you are ready.'
     if (snapshot.sensingStatus === 'lowLight') return 'A little more light may help the camera helper.'
-    if (snapshot.sensingStatus === 'permissionDenied' || snapshot.sensingStatus === 'unsupported') {
+    if (snapshot.sensingStatus === 'permissionDenied' || snapshot.sensingStatus === 'unsupported' || snapshot.sensingStatus === 'processingUnavailable') {
       return 'The camera helper is unavailable, so the adventure will continue by sound.'
     }
     if (snapshot.keepAwakeState === 'denied' || snapshot.keepAwakeState === 'revoked') {
