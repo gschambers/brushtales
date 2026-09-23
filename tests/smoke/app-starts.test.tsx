@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react-native'
 
-import RootLayout from '../../app/_layout'
+import HomeScreen from '../../app/index'
 
 jest.mock('expo-router', () => ({
   Stack: () => null,
@@ -8,8 +8,8 @@ jest.mock('expo-router', () => ({
 
 describe('BrushTales app shell', () => {
   it('renders the BrushTales entry point', async () => {
-    const { getByText } = await render(<RootLayout />)
+    const { getByText } = await render(<HomeScreen />)
 
-    expect(getByText('BrushTales')).toBeTruthy()
+    expect(getByText('Create a profile')).toBeTruthy()
   })
 })

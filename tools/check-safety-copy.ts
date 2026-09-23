@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const files = [
+  'src/components/prototype/PrototypeApp.tsx',
   'app/index.tsx',
   'app/stories.tsx',
   'app/session/[storyId].tsx',

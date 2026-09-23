@@ -3,9 +3,8 @@ import type { SensingAdapter, SensingListener } from './sensingAdapter'
 
 type VisionCameraPermissionStatus = 'not-determined' | 'authorized' | 'denied' | 'restricted'
 
-interface VisionCameraSource {
+export interface VisionCameraSource {
   cameraPermissionStatus: VisionCameraPermissionStatus
-  requestCameraPermission(): Promise<boolean>
 }
 
 export interface DerivedVisionFeatures {
@@ -55,28 +54,23 @@ export class NativeSensingAdapter implements SensingAdapter {
   private listener: SensingListener | null = null
   private running = false
 
+  constructor(private readonly getCamera: () => VisionCameraSource = getVisionCamera) {}
+
   async start(listener: SensingListener): Promise<SensingStatus> {
     this.listener = listener
+    let status: SensingStatus
     try {
-      const visionCamera = getVisionCamera()
+      const visionCamera = this.getCamera()
       const permissionStatus = visionCamera.cameraPermissionStatus
-      if (permissionStatus === 'restricted') return 'unsupported'
-      if (permissionStatus === 'denied') return 'permissionDenied'
-      if (permissionStatus === 'not-determined' && !(await visionCamera.requestCameraPermission())) {
-        return 'permissionDenied'
-      }
-
-      this.running = true
-      listener({
-        status: 'ready',
-        motionScore: 0,
-        coveragePrompt: null,
-        confidence: 'low',
-      })
-      return 'ready'
+      if (permissionStatus === 'restricted') status = 'unsupported'
+      else if (permissionStatus === 'denied') status = 'permissionDenied'
+      else status = 'processingUnavailable'
     } catch {
-      return 'processingUnavailable'
+      status = 'processingUnavailable'
     }
+    this.running = false
+    listener({ status, motionScore: 0, coveragePrompt: null, confidence: 'low' })
+    return status
   }
 
   async stop(): Promise<void> {

@@ -1,4 +1,3 @@
-import { createAudioPlayer } from 'expo-audio'
 import type { AudioAssetId } from '../domain/session/types'
 import { resolveAudioAsset, type AudioAsset } from './audioManifest'
 
@@ -35,6 +34,13 @@ interface LocalAudioPlayerOptions {
   manifest?: Record<string, AudioAsset>
 }
 
+function createDefaultNativePlayer(asset: AudioAsset): NativeAudioPlayer {
+  // Defer loading the Expo native module until playback is actually requested.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createAudioPlayer } = require('expo-audio') as typeof import('expo-audio')
+  return createAudioPlayer({ uri: asset.uri })
+}
+
 export class LocalAudioPlayer implements AudioPlayer {
   private readonly createNativePlayer: (asset: AudioAsset) => NativeAudioPlayer
   private readonly manifest: Record<string, AudioAsset>
@@ -44,7 +50,7 @@ export class LocalAudioPlayer implements AudioPlayer {
 
   constructor(options: LocalAudioPlayerOptions = {}) {
     this.manifest = options.manifest ?? {}
-    this.createNativePlayer = options.createNativePlayer ?? ((asset) => createAudioPlayer({ uri: asset.uri }))
+    this.createNativePlayer = options.createNativePlayer ?? createDefaultNativePlayer
   }
 
   async load(assetId: AudioAssetId): Promise<void> {
