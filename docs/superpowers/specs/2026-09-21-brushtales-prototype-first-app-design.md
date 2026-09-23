@@ -33,10 +33,12 @@ Required state behavior:
 
 - `welcome`: first-run **Create a profile**; returning profile shows the warm
   greeting, **Start an adventure**, and long-press adult settings control.
-- `profile`: one child-name field, **Continue**, and **Back**, matching the
-  prototype card and copy.
+- `profile`: a grown-up-visible setup cue, one local profile-nickname field,
+  on-device storage and transient-media privacy copy, **Continue**, and **Back**.
+  The field does not ask a child to provide their name.
 - `opening`: Act 1 audiobook card with one **Begin story** action. No visible
-  Act 1 audio-only action.
+  Act 1 audio-only action. Copy reminds families that grown-ups are responsible
+  for safe brushing.
 - `running`: camera helper slot, seconds-only countdown, compact playback/audio
   halo, bottom-right atlas, muted exit, and prototype session tone.
 - `paused`: same brushing composition with the active zone stable and **Resume
@@ -52,6 +54,21 @@ The prototype’s authored state flow is authoritative even where it differs
 from the earlier native vertical-slice decision to stop after Act 3. The
 choice sheet is restored because the user explicitly selected the prototype
 experience as the complete product target.
+
+## Local data and adapter behavior
+
+- The root story session uses the selected local profile ID and persists its
+  session summary to the on-device repository exactly once.
+- The current native sensing adapter reports `processingUnavailable` until a
+  transient frame processor exists. It does not request camera permission or
+  claim that sensing is ready based only on permission status; the child-facing
+  brushing composition continues by sound with a calm notice.
+- Profile setup is visibly directed to a grown-up and explains that profiles
+  and progress stay on-device and that camera frames, face images, voice
+  recordings, and biometric identifiers are not saved.
+- When app state leaves the foreground during an active brushing phase, the
+  root pauses the session and resumes only the pause it initiated. System
+  reduced-motion preference keeps the toothbrush still.
 
 ## Visual fidelity contract
 

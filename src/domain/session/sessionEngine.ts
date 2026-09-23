@@ -63,8 +63,19 @@ export class SessionEngine {
     this.status = 'running'
     this.runningSinceMs = this.dependencies.clock.now()
     this.keepAwakeState = await this.dependencies.keepAwake.acquire()
-    this.sensingStatus = await this.dependencies.sensing.start((signal) => this.recordSignal(signal))
+    if (this.status !== 'running') {
+      await this.dependencies.keepAwake.release()
+      this.keepAwakeState = 'released'
+      return
+    }
+    const sensingStatus = await this.dependencies.sensing.start((signal) => this.recordSignal(signal))
+    if (this.status !== 'running') {
+      await this.dependencies.sensing.stop()
+      return
+    }
+    this.sensingStatus = sensingStatus
     await this.dependencies.audio.play()
+    if (this.status !== 'running') await this.dependencies.audio.stop()
   }
 
   async pause(): Promise<void> {
@@ -158,6 +169,7 @@ export class SessionEngine {
   }
 
   private recordSignal(signal: SensingSignal): void {
+    if (this.status !== 'running') return
     this.sensingStatus = signal.status
     this.motionScores.push(signal.motionScore)
     if (signal.coveragePrompt) this.coveragePromptsAttempted += 1

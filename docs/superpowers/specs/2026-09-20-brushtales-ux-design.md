@@ -318,9 +318,10 @@ verification.
 
 ### Step 3: Create explorer
 
-Use the child-facing visual language inside an adult-controlled form with one
-local child-name input. Profile setup does not preselect an avatar or expose a
-profile picker in the child-facing flow.
+Use the child-facing visual language inside an adult-visible form with one
+local profile-nickname input. State that profiles and progress stay on this
+device; do not ask a child to provide their name. Profile setup does not
+preselect an avatar or expose a profile picker in the child-facing flow.
 
 No email, password, location, photograph, voice sample, or account recovery
 flow is needed.

@@ -23,6 +23,7 @@ export interface StorySessionController {
   snapshot(): SessionSnapshot
   refresh(): void
   beginStory(): Promise<void>
+  beginBrushing(): Promise<void>
   pauseOrResume(): Promise<void>
   completeClosing(): Promise<void>
   stop(): Promise<SessionResult>
@@ -53,6 +54,7 @@ export class StorySessionControllerImpl implements StorySessionController {
   private closingStarted = false
   private stopping = false
   private cleanupPromise: Promise<SessionResult> | null = null
+  private sessionResult: SessionResult | null = null
   private viewState: StorySessionViewState
 
   constructor(dependencies: StorySessionControllerDependencies) {
@@ -88,7 +90,19 @@ export class StorySessionControllerImpl implements StorySessionController {
     if (this.phase !== 'opening' || this.beginRequested || this.stopping) return
     this.beginRequested = true
     await this.dependencies.audio.load(this.dependencies.openingAssetId)
-    if (!this.stopping) await this.dependencies.audio.play()
+    if (this.stopping) return
+    if (this.hasUnavailableAudio()) {
+      await this.startBrushing()
+      return
+    }
+    await this.dependencies.audio.play()
+    if (!this.stopping && this.hasUnavailableAudio()) await this.startBrushing()
+  }
+
+  async beginBrushing(): Promise<void> {
+    if (this.phase !== 'opening' || this.beginRequested || this.stopping) return
+    this.beginRequested = true
+    await this.startBrushing()
   }
 
   async pauseOrResume(): Promise<void> {
@@ -115,6 +129,7 @@ export class StorySessionControllerImpl implements StorySessionController {
       if (status !== 'idle' && status !== 'stopped') {
         result = await this.engine.stop()
       } else {
+        result = this.sessionResult ?? emptyResult
         await Promise.allSettled([
           this.dependencies.audio.stop(),
           this.dependencies.keepAwake.release(),
@@ -149,6 +164,10 @@ export class StorySessionControllerImpl implements StorySessionController {
       void this.engine.pause().then(() => this.emit())
     }
     this.emit()
+    if (event === 'error' && this.phase === 'opening' && this.beginRequested && !this.brushingStarted) {
+      void this.startBrushing()
+      return
+    }
     if (event !== 'finished') return
     if (this.phase === 'opening' && this.beginRequested && !this.brushingStarted) void this.startBrushing()
     if (this.phase === 'closing') {
@@ -180,12 +199,18 @@ export class StorySessionControllerImpl implements StorySessionController {
   }
 
   private async startClosing(): Promise<void> {
-    await this.engine.stop()
+    this.sessionResult = await this.engine.stop()
     if (this.stopping) return
     await this.dependencies.audio.load(this.dependencies.closingAssetId)
     if (this.stopping) return
+    if (this.hasUnavailableAudio()) {
+      this.phase = 'complete'
+      this.emit()
+      return
+    }
     this.phase = 'closing'
     await this.dependencies.audio.play()
+    if (this.hasUnavailableAudio()) this.phase = 'complete'
     this.emit()
   }
 
@@ -225,6 +250,10 @@ export class StorySessionControllerImpl implements StorySessionController {
       return 'The screen may dim, but the adventure can keep going.'
     }
     return null
+  }
+
+  private hasUnavailableAudio(): boolean {
+    return this.audioState === 'unavailable'
   }
 
   private emit(): void {

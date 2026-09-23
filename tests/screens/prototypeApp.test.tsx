@@ -1,15 +1,83 @@
 import { act, fireEvent, render } from '@testing-library/react-native'
-import { Dimensions, StyleSheet } from 'react-native'
+import { AppState, Dimensions, StyleSheet } from 'react-native'
+import type { AppStateStatus } from 'react-native'
+import type { SessionResult, SessionSnapshot } from '../../src/domain/session/types'
+import type { StorySessionController } from '../../src/session/storySessionController'
+import type { StorySessionViewState } from '../../src/session/storySessionTypes'
 
 import { PrototypeApp } from '../../src/components/prototype/PrototypeApp'
 
+function createControllerFixture(
+  initialPhase: StorySessionViewState['phase'] = 'brushing',
+  initialStatus?: SessionSnapshot['status'],
+  sensingStatus: StorySessionViewState['sensingStatus'] = 'unsupported',
+) {
+  const listeners = new Set<() => void>()
+  const viewState: StorySessionViewState = {
+    phase: initialPhase,
+    audioState: 'playing',
+    zoneIndex: 0,
+    remainingMs: 120_000,
+    sensingStatus,
+    keepAwakeState: 'active',
+    statusNotice: sensingStatus === 'processingUnavailable'
+      ? 'The camera helper is unavailable, so the adventure will continue by sound.'
+      : null,
+  }
+  let snapshot: SessionSnapshot = {
+    status: initialStatus ?? (initialPhase === 'brushing' ? 'running' : 'idle'),
+    elapsedMs: initialPhase === 'brushing' ? 1_000 : 0,
+    remainingMs: initialPhase === 'brushing' ? 119_000 : 120_000,
+    sensingStatus,
+    keepAwakeState: 'active',
+  }
+  const result: SessionResult = {
+    completedDurationMs: 120_000,
+    engagementBand: 'steady',
+    coveragePromptsAttempted: 12,
+    confidence: 'medium',
+    interrupted: false,
+  }
+  const controller: StorySessionController = {
+    state: () => viewState,
+    snapshot: () => snapshot,
+    refresh: jest.fn(() => listeners.forEach((listener) => listener())),
+    beginStory: jest.fn(async () => undefined),
+    beginBrushing: jest.fn(async () => {
+      viewState.phase = 'brushing'
+      snapshot = { ...snapshot, status: 'running' }
+      listeners.forEach((listener) => listener())
+    }),
+    pauseOrResume: jest.fn(async () => {
+      snapshot = { ...snapshot, status: snapshot.status === 'paused' ? 'running' : 'paused' }
+      listeners.forEach((listener) => listener())
+    }),
+    completeClosing: jest.fn(async () => undefined),
+    stop: jest.fn(async () => result),
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
+  }
+  return {
+    controller,
+    complete: () => {
+      viewState.phase = 'complete'
+      snapshot = { ...snapshot, status: 'stopped', remainingMs: 0 }
+      listeners.forEach((listener) => listener())
+    },
+  }
+}
+
 describe('prototype-first root experience', () => {
+  afterEach(() => jest.restoreAllMocks())
+
   it('follows the prototype profile and opening flow', async () => {
     const rendered = await render(<PrototypeApp />)
 
     expect(rendered.getByRole('button', { name: 'Create a profile' })).toBeTruthy()
     await act(async () => fireEvent.press(rendered.getByRole('button', { name: 'Create a profile' })))
-    await act(async () => fireEvent.changeText(rendered.getByPlaceholderText("Child's name"), 'Mira'))
+    await act(async () => fireEvent.changeText(rendered.getByPlaceholderText('Nickname'), 'Mira'))
     await act(async () => fireEvent.press(rendered.getByRole('button', { name: 'Continue' })))
 
     expect(rendered.getByText(/Ready for another adventure, Mira/i)).toBeTruthy()
@@ -48,17 +116,22 @@ describe('prototype-first root experience', () => {
   })
 
   it('starts a fresh timed brushing chapter after a story choice', async () => {
-    jest.useFakeTimers()
-    const rendered = await render(<PrototypeApp initialState="choice" enableDomainSession />)
+    const fixture = createControllerFixture('opening')
+    const rendered = await render(
+      <PrototypeApp
+        initialState="choice"
+        enableDomainSession
+        sessionControllerFactory={() => fixture.controller}
+      />,
+    )
 
     await act(async () => fireEvent.press(rendered.getByRole('button', { name: /Follow the bubbles/ })))
-    await act(async () => jest.advanceTimersByTimeAsync(6_665))
-    expect(rendered.getByLabelText('114 seconds remaining')).toBeTruthy()
-    expect(rendered.getByLabelText('Top teeth · front · left side highlighted')).toBeTruthy()
-    await act(async () => jest.advanceTimersByTimeAsync(2))
+    expect(fixture.controller.beginBrushing).toHaveBeenCalledTimes(1)
+    expect(rendered.getByLabelText('120 seconds remaining')).toBeTruthy()
+    expect(rendered.getByRole('button', { name: 'Pause adventure' })).toBeTruthy()
 
-    expect(rendered.getByLabelText('Top teeth · front · center highlighted')).toBeTruthy()
-    jest.useRealTimers()
+    await act(async () => fireEvent.press(rendered.getByRole('button', { name: 'Pause adventure' })))
+    expect(rendered.getByRole('button', { name: 'Resume adventure' })).toBeTruthy()
   })
 
   it('refreshes the domain session target every 6.667 seconds', async () => {
@@ -100,8 +173,9 @@ describe('prototype-first root experience', () => {
 
   it('loads and saves the profile through the supplied local store', async () => {
     const profileStore = {
-      load: jest.fn(async () => 'Mira'),
-      save: jest.fn(async () => undefined),
+      load: jest.fn(async () => ({ id: 'profile-local', nickname: 'Mira' })),
+      save: jest.fn(async (nickname: string) => ({ id: 'profile-local', nickname })),
+      saveSummary: jest.fn(async () => undefined),
     }
     const rendered = await render(<PrototypeApp profileStore={profileStore} />)
 
@@ -109,6 +183,224 @@ describe('prototype-first root experience', () => {
     expect(rendered.getByText(/Ready for another adventure, Mira/i)).toBeTruthy()
     await act(async () => fireEvent.press(rendered.getByRole('button', { name: 'Start an adventure' })))
     expect(profileStore.save).not.toHaveBeenCalled()
+  })
+
+  it('makes profile setup caregiver-visible and keeps safe-brushing supervision explicit', async () => {
+    const rendered = await render(<PrototypeApp initialState="profile" />)
+
+    expect(rendered.getByText('Grown-up setup')).toBeTruthy()
+    expect(rendered.getByText(/profiles and progress stay on this device/i)).toBeTruthy()
+    expect(rendered.getByText(/camera frames, face images, voice recordings, and biometric identifiers are not saved/i)).toBeTruthy()
+    expect(rendered.getByPlaceholderText('Nickname')).toBeTruthy()
+    expect(rendered.queryByPlaceholderText("Child's name")).toBeNull()
+
+    await act(async () => rendered.rerender(<PrototypeApp initialState="opening" />))
+    expect(rendered.getByText(/grown-ups are responsible for safe brushing/i)).toBeTruthy()
+  })
+
+  it('sends completed domain sessions to the completion screen and persists once for the loaded profile', async () => {
+    const profileStore = {
+      load: jest.fn(async () => ({ id: 'profile-local-42', nickname: 'Mira' })),
+      save: jest.fn(async (nickname: string) => ({ id: 'profile-local-42', nickname })),
+      saveSummary: jest.fn(async () => undefined),
+    }
+    const fixture = createControllerFixture()
+    const sessionControllerFactory = jest.fn(() => fixture.controller)
+    const rendered = await render(
+      <PrototypeApp
+        initialState="running"
+        enableDomainSession
+        profileStore={profileStore}
+        sessionControllerFactory={sessionControllerFactory}
+      />,
+    )
+
+    await act(async () => await Promise.resolve())
+    await act(async () => fixture.complete())
+
+    expect(rendered.getByText('You kept exploring.')).toBeTruthy()
+    expect(sessionControllerFactory).toHaveBeenCalledWith('profile-local-42')
+    expect(profileStore.saveSummary).toHaveBeenCalledTimes(1)
+    expect(profileStore.saveSummary).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: 'profile-local-42',
+      storyId: 'sky-reef',
+      completed: true,
+      completedDurationMs: 120_000,
+      engagementBand: 'steady',
+      confidence: 'medium',
+      interrupted: false,
+    }))
+  })
+
+  it('persists an exited session once as incomplete with its interruption signal', async () => {
+    const profileStore = {
+      load: jest.fn(async () => ({ id: 'profile-exit-15', nickname: 'Mira' })),
+      save: jest.fn(async (nickname: string) => ({ id: 'profile-exit-15', nickname })),
+      saveSummary: jest.fn(async () => undefined),
+    }
+    const fixture = createControllerFixture()
+    jest.spyOn(fixture.controller, 'stop').mockResolvedValue({
+      completedDurationMs: 40_000,
+      engagementBand: 'low',
+      coveragePromptsAttempted: 2,
+      confidence: 'low',
+      interrupted: true,
+    })
+    const rendered = await render(
+      <PrototypeApp
+        initialState="running"
+        enableDomainSession
+        profileStore={profileStore}
+        sessionControllerFactory={() => fixture.controller}
+      />,
+    )
+
+    await act(async () => await Promise.resolve())
+    await act(async () => fireEvent.press(rendered.getByRole('button', { name: /Exit/ })))
+    await act(async () => await Promise.resolve())
+
+    expect(profileStore.saveSummary).toHaveBeenCalledTimes(1)
+    expect(profileStore.saveSummary).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: 'profile-exit-15',
+      completed: false,
+      completedDurationMs: 40_000,
+      interrupted: true,
+    }))
+  })
+
+  it('starts a fresh controller after continuing from the closing chapter through a choice', async () => {
+    const profileStore = {
+      load: jest.fn(async () => ({ id: 'profile-local-7', nickname: 'Mira' })),
+      save: jest.fn(async (nickname: string) => ({ id: 'profile-local-7', nickname })),
+      saveSummary: jest.fn(async () => undefined),
+    }
+    const first = createControllerFixture('closing')
+    const next = createControllerFixture('opening')
+    const sessionControllerFactory = jest.fn()
+      .mockReturnValueOnce(first.controller)
+      .mockReturnValueOnce(next.controller)
+    const rendered = await render(
+      <PrototypeApp
+        initialState="closing"
+        enableDomainSession
+        profileStore={profileStore}
+        sessionControllerFactory={sessionControllerFactory}
+      />,
+    )
+
+    await act(async () => await Promise.resolve())
+    await act(async () => fireEvent.press(rendered.getByRole('button', { name: 'Continue to story choice' })))
+    await act(async () => fireEvent.press(rendered.getByRole('button', { name: /Follow the bubbles/ })))
+    await act(async () => await Promise.resolve())
+
+    expect(sessionControllerFactory).toHaveBeenCalledTimes(2)
+    expect(next.controller.beginBrushing).toHaveBeenCalledTimes(1)
+    expect(profileStore.saveSummary).toHaveBeenCalledTimes(1)
+    expect(rendered.getByRole('button', { name: 'Pause adventure' })).toBeTruthy()
+  })
+
+  it('recreates the domain controller after exiting and starting another adventure', async () => {
+    const first = createControllerFixture()
+    const next = createControllerFixture('opening')
+    const sessionControllerFactory = jest.fn()
+      .mockReturnValueOnce(first.controller)
+      .mockReturnValueOnce(next.controller)
+    const rendered = await render(
+      <PrototypeApp
+        initialState="running"
+        initialProfileName="Mira"
+        enableDomainSession
+        sessionControllerFactory={sessionControllerFactory}
+      />,
+    )
+
+    await act(async () => fireEvent.press(rendered.getByRole('button', { name: /Exit/ })))
+    await act(async () => fireEvent.press(rendered.getByRole('button', { name: 'Start an adventure' })))
+    await act(async () => fireEvent.press(rendered.getByRole('button', { name: 'Begin story' })))
+    await act(async () => await Promise.resolve())
+
+    expect(sessionControllerFactory).toHaveBeenCalledTimes(2)
+    expect(next.controller.beginStory).toHaveBeenCalledTimes(1)
+  })
+
+  it('pauses only a running session in the background and resumes only its own pause', async () => {
+    let onAppStateChange: ((nextState: AppStateStatus) => void) | undefined
+    const addListener = jest.spyOn(AppState, 'addEventListener').mockImplementation((type, listener) => {
+      if (type === 'change') onAppStateChange = listener
+      return { remove: jest.fn() }
+    })
+    const profileStore = {
+      load: jest.fn(async () => ({ id: 'profile-background', nickname: 'Mira' })),
+      save: jest.fn(async (nickname: string) => ({ id: 'profile-background', nickname })),
+      saveSummary: jest.fn(async () => undefined),
+    }
+    const running = createControllerFixture()
+    const rendered = await render(
+      <PrototypeApp
+        initialState="running"
+        enableDomainSession
+        profileStore={profileStore}
+        sessionControllerFactory={() => running.controller}
+      />,
+    )
+
+    await act(async () => await Promise.resolve())
+    await act(async () => onAppStateChange?.('background'))
+    expect(running.controller.pauseOrResume).toHaveBeenCalledTimes(1)
+    await act(async () => onAppStateChange?.('active'))
+    expect(running.controller.pauseOrResume).toHaveBeenCalledTimes(2)
+
+    const userPaused = createControllerFixture('brushing', 'paused')
+    await act(async () => rendered.rerender(
+      <PrototypeApp
+        initialState="paused"
+        enableDomainSession
+        profileStore={profileStore}
+        sessionControllerFactory={() => userPaused.controller}
+      />,
+    ))
+    await act(async () => onAppStateChange?.('background'))
+    await act(async () => onAppStateChange?.('active'))
+    expect(userPaused.controller.pauseOrResume).not.toHaveBeenCalled()
+    addListener.mockRestore()
+  })
+
+  it('keeps brushing usable by sound and hides the camera helper when sensing is unavailable', async () => {
+    const profileStore = {
+      load: jest.fn(async () => ({ id: 'profile-no-camera', nickname: 'Mira' })),
+      save: jest.fn(async (nickname: string) => ({ id: 'profile-no-camera', nickname })),
+      saveSummary: jest.fn(async () => undefined),
+    }
+    const fixture = createControllerFixture('brushing', 'running', 'processingUnavailable')
+    const rendered = await render(
+      <PrototypeApp
+        initialState="running"
+        enableDomainSession
+        profileStore={profileStore}
+        sessionControllerFactory={() => fixture.controller}
+      />,
+    )
+
+    await act(async () => await Promise.resolve())
+
+    expect(rendered.getByText(/adventure will continue by sound/i)).toBeTruthy()
+    expect(rendered.queryByLabelText('Camera helper on')).toBeNull()
+    expect(rendered.getByRole('button', { name: 'Pause adventure' })).toBeTruthy()
+  })
+
+  it('honors reduced motion and keeps the atlas compact at a 320px viewport', async () => {
+    const originalWindow = Dimensions.get('window')
+    const originalScreen = Dimensions.get('screen')
+    Dimensions.set({
+      window: { ...originalWindow, width: 320 },
+      screen: { ...originalScreen, width: 320 },
+    })
+    const rendered = await render(<PrototypeApp initialState="running" reducedMotion />)
+
+    expect(rendered.getByTestId('toothbrush-sweep-static')).toBeTruthy()
+    expect(StyleSheet.flatten(rendered.getByTestId('zone-atlas').props.style).width).toBe(188)
+
+    await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }))
   })
 
   it('applies the prototype display and rounded body font stacks', async () => {
