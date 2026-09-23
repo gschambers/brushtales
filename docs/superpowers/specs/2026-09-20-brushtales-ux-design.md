@@ -78,6 +78,19 @@ The active session has one primary control. Secondary actions such as leaving,
 audio-only information, or caregiver help remain available but visually quiet.
 Choice moments temporarily promote two clearly labeled options.
 
+### Three audiobook acts
+
+Each chapter follows three authored audio acts: an opening audiobook that sets
+the scene and invites the child into brushing, the brushing activity itself,
+and a closing audiobook that resolves the chapter before the next story choice.
+The brushing surface must not add a competing finish button; the prototype
+advances to the closing act when its authored brushing cycle completes.
+
+The prototype’s toothbrush cue uses a locally stored OpenMoji vector rather
+than a hotlinked stock image. The source and CC BY-SA 4.0 attribution are kept
+beside the asset in `prototype/assets/ATTRIBUTION.md`; the image is decorative
+and the atlas label remains the accessible description.
+
 ### Encouragement without judgment
 
 Use language such as “Let’s keep exploring,” “The crew is waiting,” and “You
@@ -97,27 +110,39 @@ and story path.
 ### Canvas
 
 All child-facing screens use a safe-area-aware full-screen canvas. The primary
-session surface is a subtle vertical gradient inspired by Sky Reef:
+session surface uses a mostly flat pastel field inspired by paper, sky, and
+painted storybook shapes:
 
-- deep night blue at the top;
-- softened indigo or teal through the middle;
-- a restrained warm coral or peach accent near the lower horizon.
+- pale lavender or sky blue as the base;
+- peach, mint, butter-yellow, and coral as flat accent shapes;
+- deep indigo ink for readable text and essential controls.
 
-The gradient must remain dark enough for light text and illustrations to pass
-contrast checks. Decorative stars, clouds, bubbles, and reef shapes are sparse,
-static or very slow-moving, and never sit behind a touch target.
+Large off-kilter blobs, stars, clouds, bubbles, and reef shapes provide the
+world’s personality on landing and caregiver screens. The brushing session
+drops most of that decoration and uses one randomly selected authored pastel
+tone for its paper field, controls, camera helper, ring, and atlas accents.
+That tone remains stable through pause, zone changes, and audio-only fallback;
+a new session selects again. The palette must pass contrast checks without
+relying on a background gradient for legibility.
+
+The welcome state is intentionally sparse: the BrushTales title and one clear
+start action. Explanatory setup copy belongs after the child has entered the
+flow, not on the first screen.
 
 Caregiver screens use the same palette with a calmer, higher-contrast surface
 panel so an adult can scan settings and history easily.
 
 ### Typography and copy
 
-- Use large, rounded, highly legible display text for a short title or prompt.
+- Use a playful, license-cleared display face for short titles and prompts, with
+  a highly legible system face for body copy and accessibility.
 - Use system text styles where possible so larger text settings reflow content.
 - Keep child-facing copy short enough to understand through audio.
 - Never make color the only signal for selected, active, or unavailable state.
 - Every icon-only control has an accessibility label and a visible or spoken
   state change.
+- Prefer filled, sticker-like controls with soft offset shadows and irregular
+  corner radii over business-style pill buttons and repeated outlines.
 
 ### Touch targets
 
@@ -136,31 +161,34 @@ The active session is the central product surface.
 ### Layout
 
 1. **Top metadata**
-   - story title or chapter name;
-   - small remaining-time label such as “1:42 left”;
-   - optional quiet status chip for camera helper or audio-only mode.
+     - story title or chapter name;
+     - optional quiet status chip for camera helper or audio-only mode.
 2. **Center stage**
-   - large circular play/pause control;
-   - soft audio-reactive ring around the control;
-   - no competing progress bar directly around the button.
+     - the brushing visual remains the dominant visual area;
+     - a remaining-duration countdown sits in a contrasting dark circle directly
+       beneath the reserved camera-preview slot;
+       the visible value is seconds only;
+     - no countdown is embedded in the play/pause control.
 3. **Lower guide**
-   - a zone atlas with front, upper-arch, and lower-arch illustrations;
-   - one authored prompt zone highlighted;
-   - short prompt text only when the story is at that prompt.
+     - a zone atlas with curved upper and lower tooth registers;
+     - one authored prompt zone highlighted;
+     - no explanatory card or focus copy behind or above the illustration.
 4. **Quiet utility area**
-   - pause/resume is the center control while running;
-   - a caregiver-accessible exit or help action stays visually secondary;
-   - camera preview, when available, is a small rounded mirror tile rather than
-     the main surface.
+     - the play/pause control and restrained audio visualization sit beside the atlas in a compact cluster;
+     - the audio visualization is layered behind the play/pause button and the cluster keeps a 48px hit target;
+     - a small muted back/exit action sits in the header;
+    - no story-choice or audio-mode action buttons compete with the session;
+    - the camera preview, when available, occupies a reserved upper-session slot
+      and never covers the playback control.
 
 ### Play/pause behavior
 
-- Before the session begins, the center control is a play action labeled
-  “Start adventure.”
+- Before the session begins, the opening act action is labeled “Begin story.”
 - While running, it becomes a pause action labeled “Pause adventure.”
 - While paused, the label becomes “Resume adventure,” narration pauses safely,
   and the timer does not advance.
 - The icon transition is a short cross-fade or morph, not a spinning animation.
+- The play mark uses rounded joins, and pause uses two rounded vertical bars.
 - Audio feedback and accessibility announcements must state the new mode.
 
 ### Audio-level ring
@@ -177,6 +205,7 @@ The ring should:
 
 - respond gently with low amplitude and a slow easing curve;
 - remain visually subordinate to the play/pause button;
+- sit behind the play/pause button as a quiet halo rather than as a second control;
 - pause or settle when playback pauses;
 - use a deterministic static or breathing state when an envelope is unavailable;
 - become static or use a low-motion opacity fade when Reduce Motion is enabled;
@@ -184,29 +213,67 @@ The ring should:
 
 ### Zone atlas
 
-The zone atlas is a reviewed illustration component with three authored views:
+The zone atlas is a literal, reviewed illustration of upper and lower registers
+of individually curved, tooth-shaped forms. It contains six authored surface
+bands, each split into left, center, and right positions:
 
-- front profile;
-- upper arch/top profile;
-- lower arch/bottom profile.
+1. upper front/outer;
+2. upper chewing/top;
+3. upper inside;
+4. lower front/outer;
+5. lower chewing/top;
+6. lower inside.
 
-The current story node selects the highlighted prompt. The active region uses
-at least two cues: a shape change or outline plus a label or audio prompt. A
-slow glow is optional, but it must have a static reduced-motion equivalent.
+That creates 18 visual targets. The two-minute session is divided into six
+20-second bands, with the three positions in each band cycling for roughly
+6–7 seconds each. This is a playful pacing model derived from the general
+two-minute/all-surfaces guidance; it is not a clinical prescription or a
+coverage score.
+
+The current authored prompt selects one group of teeth. The active region uses
+at least two cues: a shape/fill treatment plus a label or audio prompt. A slow
+glow is optional, but it must have a static reduced-motion equivalent. Inactive
+teeth remain visible so the child can understand the whole-mouth map. Inactive
+teeth use a white fill and a subtle ink edge for contrast; active teeth retain
+the coral highlight.
+
+The atlas itself stays visually quiet: explanatory captions and surface legends
+are not shown inside it. It is a compact bottom-right cue, leaving the lower
+session area open for future content. Front registers retain a slight shared
+curvature with a narrow closed-mouth seam; both rows’ tooth silhouettes rotate
+180 degrees from their prior orientation while the tracks retain their arcs.
+Each register contains ten tooth forms arranged as a balanced 3 / 4 / 3 group:
+three teeth on the left, four in the center, and three on the right. The active
+center prompt therefore highlights four teeth on both upper and lower rows; the
+lower row reverses its local index mapping before the track transform so the
+visual grouping remains symmetric.
+Top-view chewing and inside registers use taller, strongly curved upper and
+lower tracks with no artificial gap to suggest an open mouth without a tongue
+or pink ellipse. Top-view chewing teeth may include visible crease patterns on
+the simplified
+premolar/molar forms. For inside surfaces, the active teeth remain white with
+only a coral band along the gap-facing edge of each register; the app does not
+attempt a confusing inside-mouth camera angle. A small vector toothbrush sits
+over the active arch, with its bristles facing the target teeth and a gentle
+back-and-forth sweep; reduced-motion settings suppress the movement. The figure
+retains an accessible spoken label for the active prompt.
 
 The atlas is a guidance illustration, not a live camera overlay. Copy must say
-what to try, not what the app sees. Preferred examples are “Let’s visit the
-upper reef” or “Try this side next,” not “We detected the upper teeth.”
+what to try, not what the app sees. Preferred examples are “Let’s visit the top
+teeth on the left” or “Try the inside path next,” not “We detected the upper
+teeth.”
 
 ### Camera and fallback
 
-When sensing is ready, show a small optional mirror tile with a simple status
-such as “Camera helper on.” The tile may be hidden without interrupting the
-story. It must not show confidence meters or raw detection labels to the child.
+When sensing is ready, show a full-width, upper-session camera preview area. The
+playback control sits below it rather than being covered by a preview tile. The
+prototype uses a visual placeholder; production camera frames remain transient
+and on-device. It must not show confidence meters or raw detection labels to the
+child.
 
 When camera access is denied, unsupported, unavailable, or uncertain:
 
-- remove the tile or replace it with a compact “Listening mode” illustration;
+- preserve the reserved preview slot so the playback control does not jump;
 - preserve the same center control, gradient, zone atlas, timer, and story path;
 - use solution-oriented copy such as “The story can continue with audio.”
 
@@ -235,9 +302,10 @@ score. A stopped or interrupted session receives equally safe copy, such as
 
 ### Step 1: Welcome
 
-Show the BrushTales world immediately with a short visual/audio teaser. The
-primary action is “Set up an explorer.” A secondary path lets a returning family
-choose an existing profile. Avoid a long feature tour.
+Show the BrushTales world immediately with a sparse title and one action. When
+no local profile exists, the action opens profile setup. When at least one local
+profile exists, show a warm returning-family greeting and keep the story-start
+action on this same landing page. Avoid a long feature tour.
 
 ### Step 2: Adult setup gate
 
@@ -250,26 +318,22 @@ verification.
 
 ### Step 3: Create explorer
 
-Use the child-facing visual language inside an adult-controlled form:
-
-- nickname or display name;
-- simple avatar selection;
-- age-band selection for presentation adaptation;
-- concise explanation that the age band changes language and guidance, not
-  health conclusions.
+Use the child-facing visual language inside an adult-controlled form with one
+local child-name input. Profile setup does not preselect an avatar or expose a
+profile picker in the child-facing flow.
 
 No email, password, location, photograph, voice sample, or account recovery
 flow is needed.
 
-### Step 4: Ready for a chapter
+### Step 4: Returning landing
 
-Before the first session, show a compact progress indicator and explain each
-capability at the moment it is needed:
-
-1. test that audio is audible;
-2. explain the optional camera helper and request camera permission;
-3. explain that keeping the screen awake is best effort;
-4. offer “Continue with audio only” at every relevant failure state.
+After profile setup, return to the same warm landing page. Show a prominent
+“Start a new story” action in the center and keep settings in a muted
+bottom-right control that opens only after a sustained hold with a visible
+progress ring. Explain capabilities at the moment they are needed rather than
+blocking the story with a status card. When camera support is unavailable,
+switch to the same layout with a quiet Listening mode status; do not require a
+child-facing mode toggle.
 
 Reminders and caregiver history remain in adult settings rather than delaying
 the first story.
@@ -291,7 +355,6 @@ Required visual states:
 - `welcome`;
 - `adultSetup`;
 - `profileCreation`;
-- `preflight`;
 - `running`;
 - `paused`;
 - `choice`;

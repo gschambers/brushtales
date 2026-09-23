@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import type { SessionSnapshot } from '../../domain/session/types'
@@ -23,6 +23,16 @@ function NativeCameraPreview({ isActive }: { isActive: boolean }) {
   return <CameraPreview isActive style={styles.camera} />
 }
 
+function CameraHelperIllustration() {
+  return (
+    <View pointerEvents="none" style={styles.cameraIllustration}>
+      <View testID="camera-helper-head" style={styles.cameraHead} />
+      <View style={styles.cameraShoulders} />
+      <View style={styles.cameraFrame} />
+    </View>
+  )
+}
+
 function noticeForState(viewState: StorySessionViewState, showCamera: boolean): string | null {
   if (viewState.statusNotice) return viewState.statusNotice
   if (!showCamera) return 'The camera helper is resting. We can keep exploring together.'
@@ -45,6 +55,8 @@ export function BrushingSurface({
   reducedMotion,
   showCamera,
 }: BrushingSurfaceProps) {
+  const { width } = useWindowDimensions()
+  const atlasWidth = Math.min(260, Math.max(204, width - 116))
   const seconds = Math.max(0, Math.ceil(snapshot.remainingMs / 1000))
   const paused = snapshot.status === 'paused'
   const notice = noticeForState(viewState, showCamera)
@@ -54,13 +66,14 @@ export function BrushingSurface({
       <View style={styles.content}>
         <Text style={styles.heading}>Brush session in progress</Text>
         <View testID="camera-preview" style={styles.cameraSlot}>
+          <CameraHelperIllustration />
           <NativeCameraPreview isActive={showCamera && !paused} />
           {!showCamera && <Text style={styles.cameraFallback}>Camera helper resting</Text>}
         </View>
         <View accessibilityRole="text" accessibilityLabel={`${seconds} seconds remaining`} style={styles.countdown}>
           <Text style={styles.countdownText}>{seconds}</Text>
         </View>
-        <View style={styles.visualRegion}>
+        <View testID="session-stage" style={styles.visualRegion}>
           <View style={styles.playbackWrap}>
             <View testID="audio-ring" style={[styles.audioRing, paused && styles.audioRingPaused]} />
             <Pressable
@@ -72,8 +85,8 @@ export function BrushingSurface({
               <Text style={styles.playbackGlyph}>{paused ? '▶' : 'Ⅱ'}</Text>
             </Pressable>
           </View>
-          <View style={styles.atlasRegion}>
-            <ZoneAtlas zoneIndex={viewState.zoneIndex} reducedMotion={reducedMotion} width={240} />
+          <View testID="lower-region" style={styles.atlasRegion}>
+            <ZoneAtlas zoneIndex={viewState.zoneIndex} reducedMotion={reducedMotion} paused={paused} width={atlasWidth} viewportWidth={width} />
           </View>
         </View>
         {notice && <Text accessibilityRole="text" style={styles.notice}>{notice}</Text>}
@@ -90,15 +103,42 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: sessionTheme.spacing.page },
   heading: { color: sessionTheme.colors.ink, fontSize: 24, fontWeight: '800' },
   cameraSlot: {
+    position: 'relative',
     minHeight: 170,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: -sessionTheme.spacing.page,
     overflow: 'hidden',
-    backgroundColor: sessionTheme.colors.soft,
+    backgroundColor: sessionTheme.colors.light,
   },
   camera: { height: '100%', width: '100%' },
   cameraFallback: { color: sessionTheme.colors.muted, fontSize: 14 },
+  cameraIllustration: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'flex-end' },
+  cameraHead: {
+    position: 'absolute',
+    top: 28,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: sessionTheme.colors.paper,
+  },
+  cameraShoulders: {
+    width: 170,
+    height: 82,
+    borderTopLeftRadius: 100,
+    borderTopRightRadius: 100,
+    backgroundColor: sessionTheme.colors.soft,
+  },
+  cameraFrame: {
+    position: 'absolute',
+    top: 22,
+    width: 106,
+    height: 126,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(48,54,92,0.24)',
+    borderRadius: 52,
+  },
   countdown: {
     width: 72,
     height: 72,
